@@ -39,6 +39,7 @@ type Executor struct {
 	dbUser                  string
 	dbPassword              string
 	fullbackups             int
+	backupPath              string
 	ctx                     context.Context
 	cancel                  context.CancelFunc
 	client                  *client.ColoniesClient
@@ -167,6 +168,12 @@ func WithFullbackups(count int) ExecutorOption {
 	}
 }
 
+func WithBackupPath(path string) ExecutorOption {
+	return func(e *Executor) {
+		e.backupPath = path
+	}
+}
+
 func createExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
@@ -272,7 +279,7 @@ func (e *Executor) removeOldBackups() error {
 
 func (e *Executor) backup() (string, error) {
 	log.Info("Backing up database ...")
-	size, execTime, path, filename, err := backup.ExecBackupDB()
+	size, execTime, path, filename, err := backup.ExecBackupDB(e.backupPath)
 	if err != nil {
 		return "", err
 	}

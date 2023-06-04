@@ -8,7 +8,7 @@ import (
 )
 
 func TestBackup(t *testing.T) {
-	size, execTime, path, filename, err := ExecBackupDB()
+	size, execTime, path, filename, err := ExecBackupDB("/tmp")
 	assert.Nil(t, err)
 	assert.True(t, size > 0)
 	assert.True(t, execTime > 0)

@@ -48,7 +48,8 @@ var startCmd = &cobra.Command{
 			"DBUser":                  DBUser,
 			"DBDatabase":              DBDatabase,
 			"DBPassword":              "***********************",
-			"FullBackups":             FullBackups}).
+			"FullBackups":             FullBackups,
+			"BackupPath":              BackupPath}).
 			Info("Starting a Colonies PostgreSQL Backup Executor")
 
 		executor, err := executor.CreateExecutor(
@@ -72,6 +73,7 @@ var startCmd = &cobra.Command{
 			executor.WithDBUser(DBUser),
 			executor.WithDBPassword(DBPassword),
 			executor.WithFullbackups(FullBackups),
+			executor.WithBackupPath(BackupPath),
 		)
 		CheckError(err)
 
@@ -207,6 +209,11 @@ func parseEnv() {
 	if FullBackupsStr != "" {
 		FullBackups, err = strconv.Atoi(FullBackupsStr)
 		CheckError(err)
+	}
+
+	BackupPathStr := os.Getenv("BACKUP_PATH")
+	if BackupPathStr != "" {
+		BackupPath = BackupPathStr
 	}
 }
 

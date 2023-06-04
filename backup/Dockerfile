@@ -1,6 +1,6 @@
-FROM alpine
+FROM postgres:13.11
 
 WORKDIR /
-COPY ./bin/backup /bin
+COPY ./bin/backup_executor /bin
 
-CMD ["backup", "start"]
+CMD ["backup_executor", "start"]

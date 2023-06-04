@@ -9,11 +9,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ExecBackupDB() (int64, int64, string, string, error) {
+func ExecBackupDB(backupPath string) (int64, int64, string, string, error) {
 	now := time.Now()
 	timestamp := time.Now().Unix()
 	filename := "backup_" + strconv.FormatInt(timestamp, 10) + ".tar.gz"
-	path := "/tmp"
+	path := backupPath
 	filepath := path + "/" + filename
 	command := "pg_dump -h localhost -p 5432 -U postgres -Ft | gzip > " + filepath
 	cmd := exec.Command("sh", "-c", command)

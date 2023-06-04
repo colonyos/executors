@@ -35,6 +35,7 @@ var DBUser string
 var DBDatabase string
 var DBPassword string
 var FullBackups int
+var BackupPath string
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
