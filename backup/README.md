@@ -24,7 +24,7 @@ colonies function exec --func backup --targettype backup
 
 ### Listening backup processes
 ```console
-colonies process pss --type backup --count 5                                                     19:05:28
+colonies process pss --type backup --count 5 
 
 INFO[0000] Starting a Colonies client                    Insecure=true ServerHost=localhost ServerPort=50080
 +------------------------------------------------------------------+----------+------+---------------------+---------------+
@@ -75,7 +75,7 @@ cat ./cron.json
 Run backup every night at 03:00.
 
 ```console
-colonies cron add --name backup_cron --cron "0 0 3 * * *" TestCronExample" --spec cron.json 
+colonies cron add --name backup_cron --cron "0 0 3 * * *" --spec cron.json 
 ```
 
 ## Starting a backup executor
@@ -86,6 +86,8 @@ colonies cron add --name backup_cron --cron "0 0 3 * * *" TestCronExample" --spe
 
 ## Configuration
 The configuration are done using environmental variables. This should be self-explanatory, except for *FULL_BACKUPS*, which specifies how many (full) backup files should be stored on S3 before being deleted, e.g if set to 3, only 3 backup files will be stored. The oldest files are automatically purged. 
+
+If *COLONIES_COLONY_PRVKEY*, then the executor will self-register to the Colonies server. Otherwise, it will use *COLONIES_EXECUTOR_ID* and *COLONIES_EXECUTOR_PRVKEY* to connect the colony.
 
 ```console
 export LANG=en_US.UTF-8
@@ -98,8 +100,8 @@ export COLONIES_SERVER_HOST="localhost"
 export COLONIES_SERVER_PORT="50080"
 export COLONIES_COLONY_ID="4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4"
 export COLONIES_COLONY_PRVKEY="ba949fa134981372d6da62b6a56f336ab4d843b22c02a4257dcf7d0d73097514"
-export COLONIES_EXECUTOR_ID="3fc05cf3df4b494e95d6a3d297a34f19938f7daa7422ab0d4f794454133341ac"
-export COLONIES_EXECUTOR_PRVKEY="ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05"
+export COLONIES_EXECUTOR_ID=""
+export COLONIES_EXECUTOR_PRVKEY=""
 export FULL_BACKUPS="3"
 export BACKUP_PATH="/tmp"
 export AWS_S3_SECURE="true"
