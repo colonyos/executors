@@ -1,0 +1,6 @@
+{
+    "conditions": {
+        "executortype": "backup"
+    },
+    "funcname": "backup"
+}

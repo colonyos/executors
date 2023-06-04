@@ -33,11 +33,12 @@ var startCmd = &cobra.Command{
 			"ColoniesServerPort":      ColoniesServerPort,
 			"ColoniesInsecure":        ColoniesInsecure,
 			"ColonyId":                ColonyID,
+			"ColonyPrvKey":            "***********************",
 			"ExecutorId":              ExecutorID,
 			"ExecutorPrvKey":          "***********************",
 			"AWSS3Secure":             AWSS3Secure,
 			"AWSS3InsecureSkipVerify": AWSS3InsecureSkipVerify,
-			"AWSS3Endpoint":           "AWSS3Endpoint",
+			"AWSS3Endpoint":           AWSS3Endpoint,
 			"AWSS3Region":             AWSS3Region,
 			"AWSS3AccessKey":          AWSS3AccessKey,
 			"AWSS3SecretAccessKey":    AWSS3SecretAccessKey,
@@ -45,14 +46,17 @@ var startCmd = &cobra.Command{
 			"DBHost":                  DBHost,
 			"DBPort":                  DBPort,
 			"DBUser":                  DBUser,
-			"DBPassword":              "***********************"}).
+			"DBDatabase":              DBDatabase,
+			"DBPassword":              "***********************",
+			"FullBackups":             FullBackups}).
 			Info("Starting a Colonies PostgreSQL Backup Executor")
 
-		executor := executor.CreateExecutor(
+		executor, err := executor.CreateExecutor(
 			executor.WithColoniesServerHost(ColoniesServerHost),
 			executor.WithColoniesServerPort(ColoniesServerPort),
 			executor.WithColoniesInsecure(ColoniesInsecure),
 			executor.WithColonyID(ColonyID),
+			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorID(ExecutorID),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithAWSS3Secure(AWSS3Secure),
@@ -61,13 +65,17 @@ var startCmd = &cobra.Command{
 			executor.WithAWSS3Region(AWSS3Region),
 			executor.WithAWSS3AccessKey(AWSS3AccessKey),
 			executor.WithAWSS3SecretAccessKey(AWSS3SecretAccessKey),
+			executor.WithAWSS3BucketName(AWSS3BucketName),
 			executor.WithDBHost(DBHost),
+			executor.WithDBDatabase(DBDatabase),
 			executor.WithDBPort(DBPort),
 			executor.WithDBUser(DBUser),
 			executor.WithDBPassword(DBPassword),
+			executor.WithFullbackups(FullBackups),
 		)
+		CheckError(err)
 
-		err := executor.ServeForEver()
+		err = executor.ServeForEver()
 		CheckError(err)
 	},
 }
@@ -106,6 +114,10 @@ func parseEnv() {
 	}
 	if ColonyID == "" {
 		CheckError(errors.New("Unknown Colony Id"))
+	}
+
+	if ColonyPrvKey == "" {
+		ColonyPrvKey = os.Getenv("COLONIES_COLONY_PRVKEY")
 	}
 
 	if ExecutorID == "" {
@@ -176,6 +188,11 @@ func parseEnv() {
 		CheckError(err)
 	}
 
+	DBDatabaseStr := os.Getenv("DB_DATABASE")
+	if DBDatabaseStr != "" {
+		DBDatabase = DBDatabaseStr
+	}
+
 	DBUserStr := os.Getenv("DB_USER")
 	if DBUserStr != "" {
 		DBUser = DBUserStr
@@ -184,6 +201,12 @@ func parseEnv() {
 	DBPasswordStr := os.Getenv("DB_PASSWORD")
 	if DBPasswordStr != "" {
 		DBPassword = DBPasswordStr
+	}
+
+	FullBackupsStr := os.Getenv("FULL_BACKUPS")
+	if FullBackupsStr != "" {
+		FullBackups, err = strconv.Atoi(FullBackupsStr)
+		CheckError(err)
 	}
 }
 

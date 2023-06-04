@@ -17,6 +17,7 @@ var ColoniesInsecure bool
 var ColoniesSkipTLSVerify bool
 var ColoniesUseTLS bool
 var ColonyID string
+var ColonyPrvKey string
 var ExecutorName string
 var ExecutorID string
 var ExecutorType string
@@ -31,7 +32,9 @@ var AWSS3BucketName string
 var DBHost string
 var DBPort int
 var DBUser string
+var DBDatabase string
 var DBPassword string
+var FullBackups int
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
