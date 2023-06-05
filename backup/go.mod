@@ -3,7 +3,7 @@ module github.com/colonyos/executors/backup
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.1.1
+	github.com/colonyos/colonies v1.1.2
 	github.com/minio/minio-go/v7 v7.0.56
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/sirupsen/logrus v1.9.3

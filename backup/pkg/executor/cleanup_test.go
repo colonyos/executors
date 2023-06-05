@@ -7,19 +7,19 @@ import (
 )
 
 func TestCleanup(t *testing.T) {
-	files := []string{"backups/backup_1685885186.tar.gz", "backups/backup_1685886083.tar.gz", "backups/backup_1685886210.tar.gz", "backups/backup_1685886944.tar.gz", "backups/backup_1685887245.tar.gz", "backups/backup_1685887312.tar.gz", "backups/backup_1685887415.tar.gz", "backups/backup_1685887467.tar.gz", "backups/backup_1685887536.tar.gz", "backups/backup_1685889598.tar.gz", "backups/backup_1685889638.tar.gz", "backups/backup_1685889674.tar.gz", "backups/backup_1685889712.tar.gz", "backups/backup_1685889774.tar.gz"}
+	files := []string{"backups/backup_1685885186.bak", "backups/backup_1685886083.bak", "backups/backup_1685886210.bak", "backups/backup_1685886944.bak", "backups/backup_1685887245.bak", "backups/backup_1685887312.bak", "backups/backup_1685887415.bak", "backups/backup_1685887467.bak", "backups/backup_1685887536.bak", "backups/backup_1685889598.bak", "backups/backup_1685889638.bak", "backups/backup_1685889674.bak", "backups/backup_1685889712.bak", "backups/backup_1685889774.bak"}
 
 	filesToDelete := cleanup(3, files)
 
 	counter := 0
 	for _, file := range files {
-		if file == "backups/backup_1685889774.tar.gz" {
+		if file == "backups/backup_1685889774.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889712.tar.gz" {
+		if file == "backups/backup_1685889712.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889674.tar.gz" {
+		if file == "backups/backup_1685889674.bak" {
 			counter++
 		}
 	}
@@ -27,13 +27,13 @@ func TestCleanup(t *testing.T) {
 
 	counter = 0
 	for _, file := range filesToDelete {
-		if file == "backups/backup_1685889774.tar.gz" {
+		if file == "backups/backup_1685889774.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889712.tar.gz" {
+		if file == "backups/backup_1685889712.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889674.tar.gz" {
+		if file == "backups/backup_1685889674.bak" {
 			counter++
 		}
 	}
@@ -41,18 +41,18 @@ func TestCleanup(t *testing.T) {
 	assert.Len(t, filesToDelete, 11)
 	assert.Len(t, files, 14)
 
-	files = []string{"backups/backup_1685889774.tar.gz", "backups/backup_1685885186.tar.gz", "backups/backup_1685886083.tar.gz", "backups/backup_1685886210.tar.gz", "backups/backup_1685886944.tar.gz", "backups/backup_1685887245.tar.gz", "backups/backup_1685887312.tar.gz", "backups/backup_1685887415.tar.gz", "backups/backup_1685887467.tar.gz", "backups/backup_1685887536.tar.gz", "backups/backup_1685889598.tar.gz", "backups/backup_1685889638.tar.gz", "backups/backup_1685889674.tar.gz", "backups/backup_1685889712.tar.gz"}
+	files = []string{"backups/backup_1685889774.bak", "backups/backup_1685885186.bak", "backups/backup_1685886083.bak", "backups/backup_1685886210.bak", "backups/backup_1685886944.bak", "backups/backup_1685887245.bak", "backups/backup_1685887312.bak", "backups/backup_1685887415.bak", "backups/backup_1685887467.bak", "backups/backup_1685887536.bak", "backups/backup_1685889598.bak", "backups/backup_1685889638.bak", "backups/backup_1685889674.bak", "backups/backup_1685889712.bak"}
 
 	filesToDelete = cleanup(3, files)
 	counter = 0
 	for _, file := range filesToDelete {
-		if file == "backups/backup_1685889774.tar.gz" {
+		if file == "backups/backup_1685889774.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889712.tar.gz" {
+		if file == "backups/backup_1685889712.bak" {
 			counter++
 		}
-		if file == "backups/backup_1685889674.tar.gz" {
+		if file == "backups/backup_1685889674.bak" {
 			counter++
 		}
 	}
@@ -60,15 +60,15 @@ func TestCleanup(t *testing.T) {
 	assert.Len(t, filesToDelete, 11)
 	assert.Len(t, files, 14)
 
-	files = []string{"backups/backup_1685889774.tar.gz", "backups/backup_1685885186.tar.gz"}
+	files = []string{"backups/backup_1685889774.bak", "backups/backup_1685885186.bak"}
 	filesToDelete = cleanup(3, files)
 	assert.Len(t, filesToDelete, 0)
 
-	files = []string{"backups/backup_1685889774.tar.gz", "backups/backup_1685885186.tar.gz", "backups/backup_1685887467.tar.gz"}
+	files = []string{"backups/backup_1685889774.bak", "backups/backup_1685885186.bak", "backups/backup_1685887467.bak"}
 	filesToDelete = cleanup(3, files)
 	assert.Len(t, filesToDelete, 0)
 
-	files = []string{"backups/backup_1685889774.tar.gz", "backups/backup_1685885186.tar.gz", "backups/backup_1685887467.tar.gz", "backups/backup_1685886083.tar.gz"}
+	files = []string{"backups/backup_1685889774.bak", "backups/backup_1685885186.bak", "backups/backup_1685887467.bak", "backups/backup_1685886083.bak"}
 	filesToDelete = cleanup(3, files)
 	assert.Len(t, filesToDelete, 1)
 }

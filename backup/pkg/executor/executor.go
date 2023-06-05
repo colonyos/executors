@@ -237,6 +237,9 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 			return nil, err
 		}
 
+		function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "backup", Desc: "Backup a PostgreSQL/TimescaleDB to S3", AvgWaitTime: 0.0, AvgExecTime: 0.0, Args: []string{}}
+
+		_, err = e.client.AddFunction(function, e.executorPrvKey)
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
 	}
 
@@ -297,6 +300,10 @@ func (e *Executor) backup() (string, error) {
 		return "", errors.New("File sizes missmatches")
 	}
 
+	if size == 0 {
+		return "", errors.New("Backup size is 0")
+	}
+
 	log.Info("Removing old backup files ...")
 	err = e.removeOldBackups()
 	if err != nil {
@@ -324,13 +331,23 @@ func (e *Executor) backup() (string, error) {
 
 func (e *Executor) ServeForEver() error {
 	for {
-		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyID, 1, e.ctx, e.executorPrvKey)
 		if err != nil {
-			log.Warn(err)
-			log.Warn("Retrying in 5 seconds ...")
+			var coloniesError *core.ColoniesError
+			if errors.As(err, &coloniesError) {
+				if coloniesError.Status == 404 { // No processes can be selected for executor
+					log.Info(err)
+					continue
+				}
+			}
+
+			log.Error(err)
+			log.Error("Retrying in 5 seconds ...")
 			time.Sleep(5 * time.Second)
+
 			continue
 		}
+
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		funcName := process.FunctionSpec.FuncName

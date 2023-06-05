@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"fmt"
 	"io/ioutil"
 	"strconv"
 
@@ -10,7 +9,6 @@ import (
 
 func genCredFile(host string, port int, database string, user string, password string) error {
 	cred := host + ":" + strconv.Itoa(port) + ":" + database + ":" + user + ":" + password
-	fmt.Println(cred)
 
 	homedir, err := homedir.Dir()
 	if err != nil {

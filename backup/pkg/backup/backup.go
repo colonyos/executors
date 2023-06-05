@@ -12,10 +12,11 @@ import (
 func ExecBackupDB(backupPath string) (int64, int64, string, string, error) {
 	now := time.Now()
 	timestamp := time.Now().Unix()
-	filename := "backup_" + strconv.FormatInt(timestamp, 10) + ".tar.gz"
+	filename := "backup_" + strconv.FormatInt(timestamp, 10) + ".bak"
 	path := backupPath
 	filepath := path + "/" + filename
-	command := "pg_dump -h localhost -p 5432 -U postgres -Ft | gzip > " + filepath
+	// command := "pg_dump -h localhost -p 5432 -U postgres -Ft | gzip > " + filepath
+	command := "pg_dump -h localhost -p 5432 -U postgres -Fc -f " + filepath
 	cmd := exec.Command("sh", "-c", command)
 
 	if err := cmd.Start(); err != nil {
