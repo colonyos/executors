@@ -290,10 +290,16 @@ func (e *Executor) backup() (string, error) {
 
 	log.Info("Uploading backup file to S3 ...")
 	execTimeS3, sizeS3, err := e.s3.Upload(path, filename, size)
+	if err != nil {
+		return "", err
+	}
 
 	log.WithFields(log.Fields{"ExecTime": strconv.FormatInt(execTimeS3, 10) + " seconds", "Size": strconv.FormatInt(sizeS3, 10) + " bytes"}).Info("Successfully uploaded backup file")
 
 	err = os.Remove(path + "/" + filename)
+	if err != nil {
+		return "", err
+	}
 	log.WithFields(log.Fields{"Filepath": path + "/" + filename}).Info("Removed local backup file")
 
 	if size != sizeS3 {
@@ -331,7 +337,7 @@ func (e *Executor) backup() (string, error) {
 
 func (e *Executor) ServeForEver() error {
 	for {
-		process, err := e.client.AssignWithContext(e.colonyID, 1, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
 		if err != nil {
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
