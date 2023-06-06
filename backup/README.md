@@ -26,7 +26,6 @@ colonies function exec --func backup --targettype backup
 ```console
 colonies process pss --type backup --count 5 
 
-INFO[0000] Starting a Colonies client                    Insecure=true ServerHost=localhost ServerPort=50080
 +------------------------------------------------------------------+----------+------+---------------------+---------------+
 |                                ID                                | FUNCNAME | ARGS |      END TIME       | EXECUTOR TYPE |
 +------------------------------------------------------------------+----------+------+---------------------+---------------+
@@ -42,8 +41,8 @@ INFO[0000] Starting a Colonies client                    Insecure=true ServerHos
 ### Get info about a particular process
 ```console
 colonies process get -p  57d7694f26d887db297486b3b70b7139127e5a5f2ac02c40ab548e70849b8fa9 --out
-INFO[0000] Starting a Colonies client                    Insecure=true ServerHost=localhost ServerPort=50080
 ```
+
 ```json
 {
     "filename": "backup_1685897746.tar.gz",
