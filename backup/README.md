@@ -3,7 +3,10 @@
 The **backup executor** provides functionality to backup a PostgreSQL database to a S3 bucket. The executor may run as a Kubernetes sidecar.
 
 ## Usage
+```console
 cat ./backup.json
+```
+
 ```json
 {
     "conditions": {
