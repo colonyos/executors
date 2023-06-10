@@ -1,0 +1,9 @@
+{
+    "conditions": {
+        "executortype": "k8s"
+    },
+    "funcname": "undeploy",
+    "args": [
+        "sleep-executor"
+    ]
+}

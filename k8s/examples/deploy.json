@@ -1,0 +1,13 @@
+{
+    "conditions": {
+        "executortype": "k8s"
+    },
+    "funcname": "deploy",
+    "args": [
+        "sleep-executor",
+        2,
+        5,
+        false,
+        "colonyos/sleepexecutor:v0.0.1"
+    ]
+}
