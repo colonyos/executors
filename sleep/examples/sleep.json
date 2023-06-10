@@ -1,0 +1,9 @@
+{
+    "conditions": {
+        "executortype": "sleep"
+    },
+    "funcname": "sleep",
+    "args": [
+        "1000"
+    ]
+}
