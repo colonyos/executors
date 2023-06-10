@@ -124,7 +124,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 			return nil, err
 		}
 
-		function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "sleep", Desc: "Sleep Executor", AvgWaitTime: 0.0, AvgExecTime: 0.0, Args: []string{"string"}}
+		function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "sleep", Desc: "Sleep Executor", Args: []string{"sleeptime::string"}}
 
 		_, err = e.client.AddFunction(function, e.executorPrvKey)
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
