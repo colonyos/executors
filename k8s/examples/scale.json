@@ -1,0 +1,10 @@
+{
+    "conditions": {
+        "executortype": "k8s"
+    },
+    "funcname": "scale",
+    "args": [
+        "sleep-executor",
+        3
+    ]
+}

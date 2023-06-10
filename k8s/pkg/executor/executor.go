@@ -2,8 +2,8 @@ package executor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -279,17 +279,14 @@ func (e *Executor) ServeForEver() error {
 				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
 				continue
 			}
-			fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX1")
 
 			err = handler.CreateDeployment(deploymentYAML)
 			if err != nil {
-				fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX2", err)
 				log.Warning("failed to create deployment")
 				log.Warning(err)
 				err = e.client.Fail(process.ID, []string{"Failed to create deployment"}, e.executorPrvKey)
 				continue
 			}
-
 			err = e.client.Close(process.ID, e.executorPrvKey)
 			log.Info("Closing process")
 		} else if funcName == "undeploy" {
@@ -319,7 +316,7 @@ func (e *Executor) ServeForEver() error {
 				"ExecutorID":     e.executorID,
 				"Namespace":      e.executorNamespace,
 				"DeploymentName": deploymentName}).
-				Info("UnDeploying ...")
+				Info("Undeploying ...")
 
 			err = handler.DeleteDeployment(deploymentName)
 			if err != nil {
@@ -328,6 +325,93 @@ func (e *Executor) ServeForEver() error {
 				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
 				continue
 			}
+			err = e.client.Close(process.ID, e.executorPrvKey)
+			log.Info("Closing process")
+		} else if funcName == "scale" {
+			if len(process.FunctionSpec.Args) != 2 {
+				log.Info(err)
+				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+				continue
+			}
+
+			deploymentNameIf := process.FunctionSpec.Args[0]
+			deploymentName, ok := deploymentNameIf.(string)
+			if !ok {
+				log.Warning(err)
+				err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+				continue
+			}
+
+			podsIf := process.FunctionSpec.Args[1]
+			podsFloat, ok := podsIf.(float64)
+			if !ok {
+				log.Warning("pods is not a int")
+				err = e.client.Fail(process.ID, []string{"Invalid argument, pods is not a int"}, e.executorPrvKey)
+				continue
+			}
+			pods := int(podsFloat)
+
+			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+			if err != nil {
+				log.Warning("failed to create k8s handler")
+				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+				continue
+			}
+
+			log.WithFields(log.Fields{
+				"ProcessID":      process.ID,
+				"ExecutorID":     e.executorID,
+				"Namespace":      e.executorNamespace,
+				"DeploymentName": deploymentName}).
+				Info("Scaling ...")
+
+			err = handler.SetScale(pods, deploymentName)
+			if err != nil {
+				log.Warning("failed to create k8s handler")
+				log.Warning(err)
+				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+				continue
+			}
+			err = e.client.Close(process.ID, e.executorPrvKey)
+			log.Info("Closing process")
+		} else if funcName == "list" {
+			if len(process.FunctionSpec.Args) != 0 {
+				log.Info(err)
+				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+				continue
+			}
+
+			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+			if err != nil {
+				log.Warning("failed to create k8s handler")
+				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+				continue
+			}
+
+			log.WithFields(log.Fields{
+				"ProcessID":  process.ID,
+				"ExecutorID": e.executorID,
+				"Namespace":  e.executorNamespace}).
+				Info("Listing deployments ...")
+
+			deploymentNames, err := handler.GetDeploymentNames()
+			if err != nil {
+				log.Warning("failed to create k8s handler")
+				log.Warning(err)
+				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+				continue
+			}
+			json, err := json.Marshal(deploymentNames)
+			if err != nil {
+				log.Warning("failed to marshal json")
+				log.Warning(err)
+				err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
+				continue
+			}
+			output := make([]interface{}, 1)
+			output[0] = string(json)
+			err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+			log.Info("Closing process")
 		} else {
 			log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "FuncName": funcName}).Info("Unsupported function")
 			err = e.client.Fail(process.ID, []string{"Unsupported function: " + funcName}, e.executorPrvKey)
