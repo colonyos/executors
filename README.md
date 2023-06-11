@@ -2,11 +2,12 @@
 This repo contains implementation of several Colonies executors. 
 
 ## Executors 
-| Executor | Purpose                                            |
-| :---     | :-----------                                       |
-| backup   | An executor to backup PostgreSQL databases         |
-| sleep    | An executor that sleeps, can be used for testings  |
-| k8s      | Deploys other executors on Kubernetes              |
+| Executor | Purpose                                           |
+| :---     | :-----------                                      |
+| echo     | An executor that just echo back its input         |
+| sleep    | An executor that sleeps, can be used for testings |
+| k8s      | Deploys other executors on Kubernetes             |
+| backup   | An executor to backup PostgreSQL databases        |
 
 ## Colonies functions
 ### Echo executor
