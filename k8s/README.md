@@ -1,28 +1,49 @@
 # Introduction
-The sleep executor simply sleeps for a certain amount of time. The sleep function takes a string as argument stating how long time to sleep in milliseconds. 
+The K8s Executor deploys other executors on Kubernetes.
 
-## Usage
-```console
-cat ./sleep.json
-```
-
+# Usage
+## Deploy an executor 
 ```json
 {
     "conditions": {
-        "executortype": "sleep"
+        "executortype": "k8s"
     },
-    "funcname": "sleep",
+    "funcname": "deploy",
     "args": [
-        "1000"
+        "sleep-executor", <-- deployment name
+        2, <-- number of pods 
+        5, <-- executors per pods
+        false, <-- enable a shared ramdisk
+        "colonyos/sleepexecutor:v0.0.1" <-- executor container image
     ]
 }
 ```
-
 ```console
-colonies function submit --spec ./sleep.json
+colonies function submit --spec ./deploy.json
 ```
 
-or altenatively to sleep for 20 seconds:
+## List deployments
 ```console
-colonies function exec --func sleep --args 20000 --targettype sleep 
+colonies function exec --func list --targettype k8s --out --wait  
+```
+Output:
+```json
+["sleep-executor"]
+```
+
+## Scale
+```json
+{
+    "conditions": {
+        "executortype": "k8s"
+    },
+    "funcname": "scale",
+    "args": [
+        "sleep-executor", <-- deployment name
+        3 <-- number of pods
+    ]
+}
+```
+```console
+colonies function submit --spec ./scale.json
 ```
