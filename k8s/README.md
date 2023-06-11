@@ -14,7 +14,7 @@ The K8s executor deploys other executors on Kubernetes.
         2,
         5,
         false,
-        "colonyos/sleepexecutor:v0.0.1"
+        "colonyos/sleepexecutor:v1.0.0"
     ]
 }
 ```

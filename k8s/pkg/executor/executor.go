@@ -222,7 +222,7 @@ func (e *Executor) deploy(process *core.Process) {
 		"Pods":           pods,
 		"Executors":      executors,
 		"DeploymentName": deploymentName}).
-		Info("Deploying")
+		Info("Executing Deploy function")
 
 	deploymentSpec := k8s.DeploymentSpec{
 		TestMode:               false,
@@ -299,7 +299,7 @@ func (e *Executor) undeploy(process *core.Process) {
 		"ExecutorID":     e.executorID,
 		"Namespace":      e.executorNamespace,
 		"DeploymentName": deploymentName}).
-		Info("Undeploying")
+		Info("Executing Undeploy function")
 
 	err = handler.DeleteDeployment(deploymentName)
 	if err != nil {
@@ -351,7 +351,7 @@ func (e *Executor) scale(process *core.Process) {
 		"Namespace":      e.executorNamespace,
 		"Pods":           pods,
 		"DeploymentName": deploymentName}).
-		Info("Scaling")
+		Info("Executing Scale function")
 
 	err = handler.SetScale(pods, deploymentName)
 	if err != nil {
@@ -393,7 +393,7 @@ func (e *Executor) getScale(process *core.Process) {
 		"ExecutorID":     e.executorID,
 		"Namespace":      e.executorNamespace,
 		"DeploymentName": deploymentName}).
-		Info("Getting scale")
+		Info("Executing GetScale function")
 
 	scale, err := handler.GetScale(deploymentName)
 	if err != nil {
@@ -428,7 +428,7 @@ func (e *Executor) getDeployments(process *core.Process) {
 		"ProcessID":  process.ID,
 		"ExecutorID": e.executorID,
 		"Namespace":  e.executorNamespace}).
-		Info("Getting deployments")
+		Info("Executing GetDeploymentNames function")
 
 	deploymentNames, err := handler.GetDeploymentNames()
 	if err != nil {
@@ -470,7 +470,7 @@ func (e *Executor) getPods(process *core.Process) {
 		"ProcessID":  process.ID,
 		"ExecutorID": e.executorID,
 		"Namespace":  e.executorNamespace}).
-		Info("Getting pods names ...")
+		Info("Executing GetPodNames function")
 
 	podNames, err := handler.GetPodNames()
 	if err != nil {
@@ -512,7 +512,7 @@ func (e *Executor) getNumberOfPods(process *core.Process) {
 		"ProcessID":  process.ID,
 		"ExecutorID": e.executorID,
 		"Namespace":  e.executorNamespace}).
-		Info("Getting number of pods ...")
+		Info("Executing GetPodNames function")
 
 	podNames, err := handler.GetPodNames()
 	if err != nil {
@@ -564,7 +564,7 @@ func (e *Executor) getContainers(process *core.Process) {
 		"ExecutorID": e.executorID,
 		"PodName":    podName,
 		"Namespace":  e.executorNamespace}).
-		Info("Getting container names")
+		Info("Executing GetContainerNames function")
 
 	containerNames, err := handler.GetContainerNames(podName)
 	if err != nil {
@@ -615,7 +615,7 @@ func (e *Executor) getNumberOfContainers(process *core.Process) {
 		"ExecutorID": e.executorID,
 		"PodName":    podName,
 		"Namespace":  e.executorNamespace}).
-		Info("Getting number of containers")
+		Info("Executing GetContainerNames function")
 
 	containerNames, err := handler.GetContainerNames(podName)
 	if err != nil {
@@ -651,7 +651,7 @@ func (e *Executor) restart(process *core.Process) {
 		"ExecutorID": e.executorID,
 		"Namespace":  e.executorNamespace,
 		"PodName":    podName}).
-		Info("Restarting")
+		Info("Executing Restart function")
 
 	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
 	if err != nil {

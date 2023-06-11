@@ -4,20 +4,20 @@ This repo contains implementation of several Colonies executors.
 ## Executors 
 | Executor | Purpose                                            |
 | :---     | :-----------                                       |
-| backup   | An executor to backup PostgreSQL databases.        |
-| sleep    | An executor that sleeps. Can be used for testings. |
-| k8s      | Deploys other executors on Kubernetes.             |
+| backup   | An executor to backup PostgreSQL databases         |
+| sleep    | An executor that sleeps, can be used for testings  |
+| k8s      | Deploys other executors on Kubernetes              |
 
 ## Colonies functions
-### Backup executor
-| Function     | Description      |
-| :----------- | :-----------     |
-| **backup**() | Trigger a backup |
+### Echo executor
+| Function               | Description                             |
+| :-----------           | :-----------                            |
+| **echo**(text::string) | Closes the process with the text output |
 
 ### Sleep executor
 | Function                        | Description  |
 | :-----------                    | :----------- |
-| **sleep**(milliseconds::string) | Sleep.       |
+| **sleep**(milliseconds::string) | Sleep        |
 
 ### K8s executor
 | Function                                                                                               | Description                       |
@@ -32,3 +32,8 @@ This repo contains implementation of several Colonies executors.
 | **get_containers**(podname::string)                                                                    | List container names              |
 | **containers**(podname::string)                                                                        | Get number of containers          |
 | **restart**(podname::string)                                                                           | Restart pod                       |
+
+### Backup executor
+| Function     | Description      |
+| :----------- | :-----------     |
+| **backup**() | Trigger a backup |

@@ -13,7 +13,7 @@ func createTestDeploymentSpec() DeploymentSpec {
 		ColoniesExecutorPrvKey: "ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05",
 		EnableRamdisk:          false,
 		RamdiskSize:            "1Gi",
-		DockerImage:            "colonyos/sleepexecutor:v0.0.1",
+		DockerImage:            "colonyos/sleepexecutor:v1.0.0",
 		DockerRegistryURL:      "docker_reg",
 		DockerRegistryUsername: "docker_username",
 		DockerRegistryPassword: "docker_password",

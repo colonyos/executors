@@ -11,7 +11,7 @@ executor_prvkey = "ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71ff
 wf = Workflow(colonyid)
 pods = 1 
 executors_per_pod = 2 
-container_image = "colonyos/sleepexecutor:v0.0.1"
+container_image = "colonyos/sleepexecutor:v1.0.0"
 f = func_spec(func="deploy", 
               args=["sleep-executor", pods, executors_per_pod, False, container_image], 
               colonyid=colonyid, 

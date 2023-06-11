@@ -37,7 +37,7 @@ var startCmd = &cobra.Command{
 			"ExecutorNamespace":  ExecutorNamespace,
 			"ExecutorId":         ExecutorID,
 			"ExecutorPrvKey":     "***********************"}).
-			Info("Starting a Colonies K8s Executor")
+			Info("Starting a Colonies K8s executor")
 
 		executor, err := executor.CreateExecutor(
 			executor.WithColoniesServerHost(ColoniesServerHost),

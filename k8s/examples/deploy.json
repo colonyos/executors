@@ -8,6 +8,6 @@
         2,
         5,
         false,
-        "colonyos/sleepexecutor:v0.0.1"
+        "colonyos/echoexecutor:v1.0.1"
     ]
 }

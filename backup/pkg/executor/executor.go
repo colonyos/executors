@@ -360,7 +360,7 @@ func (e *Executor) ServeForEver() error {
 		if funcName == "backup" {
 			result, err := e.backup()
 			if err != nil {
-				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Err": err}).Info("Failed to call backup")
+				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Err": err}).Info("Failed to call backup function")
 				err = e.client.Fail(process.ID, []string{err.Error()}, e.executorPrvKey)
 			}
 			output := make([]interface{}, 1)

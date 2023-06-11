@@ -124,7 +124,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 			return nil, err
 		}
 
-		function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "sleep", Desc: "Sleep Executor", Args: []string{"sleeptime::string"}}
+		function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "sleep", Desc: "Sleep executor", Args: []string{"sleeptime::string"}}
 
 		_, err = e.client.AddFunction(function, e.executorPrvKey)
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
@@ -186,7 +186,7 @@ func (e *Executor) ServeForEver() error {
 				err = e.client.Fail(process.ID, []string{"Invalid argument, could not convert to int"}, e.executorPrvKey)
 			}
 
-			log.WithFields(log.Fields{"TimeToSleep": timeToSleep}).Info("Sleeping")
+			log.WithFields(log.Fields{"TimeToSleep": timeToSleep}).Info("Executing sleep function")
 
 			time.Sleep(time.Duration(timeToSleep) * time.Millisecond)
 			err = e.client.Close(process.ID, e.executorPrvKey)

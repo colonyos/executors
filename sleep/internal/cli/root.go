@@ -29,8 +29,8 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "sleep_executor",
-	Short: "Colonies Sleep Executor",
-	Long:  "Colonies Sleep Executor",
+	Short: "Colonies Sleep executor",
+	Long:  "Colonies Sleep executor",
 }
 
 func Execute() {
