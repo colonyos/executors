@@ -8,6 +8,7 @@ This repo contains implementation of several Colonies executors.
 | sleep    | An executor that sleeps, can be used for testings |
 | k8s      | Deploys other executors on Kubernetes             |
 | backup   | An executor to backup PostgreSQL databases        |
+| python   | Injects and runs Python code                      |
 
 ## Functions
 ### Echo executor
