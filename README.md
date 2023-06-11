@@ -9,7 +9,7 @@ This repo contains implementation of several Colonies executors.
 | k8s      | Deploys other executors on Kubernetes             |
 | backup   | An executor to backup PostgreSQL databases        |
 
-## Colonies functions
+## Functions
 ### Echo executor
 | Function               | Description                             |
 | :-----------           | :-----------                            |
@@ -38,3 +38,8 @@ This repo contains implementation of several Colonies executors.
 | Function     | Description      |
 | :----------- | :-----------     |
 | **backup**() | Trigger a backup |
+
+### Python executor
+| Function     | Description                                                             |
+| :----------- | :-----------                                                            |
+| python_code  | Injects the python code into the Python session and register a function |
