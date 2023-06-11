@@ -10,11 +10,11 @@ The K8s executor deploys other executors on Kubernetes.
     },
     "funcname": "deploy",
     "args": [
-        "sleep-executor", <-- deployment name
-        2, <-- number of pods 
-        5, <-- executors per pods
-        false, <-- enable a shared ramdisk
-        "colonyos/sleepexecutor:v0.0.1" <-- executor container image
+        "sleep-executor",
+        2,
+        5,
+        false,
+        "colonyos/sleepexecutor:v0.0.1"
     ]
 }
 ```
@@ -26,7 +26,6 @@ colonies function submit --spec ./deploy.json
 ```console
 colonies function exec --func list --targettype k8s --out --wait  
 ```
-Output:
 ```json
 ["sleep-executor"]
 ```
@@ -35,7 +34,6 @@ Output:
 ```console
 colonies function exec --func get_scale --args sleep-executor --targettype k8s --out --wait 
 ```
-Output
 ```json
 2
 ```
@@ -61,7 +59,6 @@ colonies function submit --spec ./scale.json
 ```console
 colonies function exec --func get_pods --targettype k8s --out --wait  
 ```
-Output:
 ```json
 ["sleep-executor-59bf486c65-mzkdj","sleep-executor-59bf486c65-p5kxr"]
 ```
@@ -70,7 +67,6 @@ Output:
 ```console
 colonies function exec --func pods --targettype k8s --out --wait  
 ```
-Output:
 ```json
 2
 ```
@@ -79,7 +75,6 @@ Output:
 ```console
 colonies function exec --func get_containers --args sleep-executor-77bbf9c97c-4c6sn --targettype k8s --out --wait
 ```
-Output
 ```json
 ["executor-0","executor-1","executor-2","executor-3","executor-4"]
 ```
@@ -88,7 +83,6 @@ Output
 ```console
 colonies function exec --func containers --args sleep-executor-77bbf9c97c-4c6sn --targettype k8s --out --wait
 ```
-Output:
 ```json
 5
 ```
