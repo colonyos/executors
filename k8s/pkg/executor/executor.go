@@ -164,6 +164,514 @@ func (e *Executor) Shutdown() error {
 	return nil
 }
 
+func (e *Executor) deploy(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 5 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+	deploymentNameIf := process.FunctionSpec.Args[0]
+	deploymentName, ok := deploymentNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	podsIf := process.FunctionSpec.Args[1]
+	podsFloat, ok := podsIf.(float64)
+	if !ok {
+		log.Warning("pods is not a int")
+		err = e.client.Fail(process.ID, []string{"Invalid argument, pods is not a int"}, e.executorPrvKey)
+		return
+	}
+	pods := int(podsFloat)
+
+	executorsIf := process.FunctionSpec.Args[2]
+	executorsFloat, ok := executorsIf.(float64)
+	if !ok {
+		log.Warning("executors is not a int")
+		err = e.client.Fail(process.ID, []string{"Invalid argument, executors is not a int"}, e.executorPrvKey)
+		return
+	}
+	executors := int(executorsFloat)
+
+	ramdiskIf := process.FunctionSpec.Args[3]
+	ramdisk, ok := ramdiskIf.(bool)
+	if !ok {
+		log.Warning("ramdisk is not a bool")
+		err = e.client.Fail(process.ID, []string{"Invalid argument, ramdisk is not a bool"}, e.executorPrvKey)
+		return
+	}
+
+	dockerImageIf := process.FunctionSpec.Args[4]
+	dockerImage, ok := dockerImageIf.(string)
+	if !ok {
+		log.Warning("dockerImage is not a string")
+		err = e.client.Fail(process.ID, []string{"Invalid argument, dockerImage is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":      process.ID,
+		"ExecutorID":     e.executorID,
+		"DockerImage":    dockerImage,
+		"Namespace":      e.executorNamespace,
+		"Ramdisk":        ramdisk,
+		"Pods":           pods,
+		"Executors":      executors,
+		"DeploymentName": deploymentName}).
+		Info("Deploying")
+
+	deploymentSpec := k8s.DeploymentSpec{
+		TestMode:               false,
+		DeploymentName:         deploymentName,
+		Namespace:              e.executorNamespace,
+		NumberOfPods:           pods,
+		ExecutorsPerPod:        executors,
+		ColoniesTLS:            !e.coloniesInsecure,
+		ColoniesServerHost:     e.coloniesServerHost,
+		ColoniesServerPort:     e.coloniesServerPort,
+		ColoniesColonyID:       e.colonyID,
+		ColoniesColonyPrvKey:   e.colonyPrvKey,
+		ColoniesExecutorID:     e.executorID,
+		ColoniesExecutorPrvKey: e.executorPrvKey,
+		EnableRamdisk:          false,
+		RamdiskSize:            "",
+		DockerImage:            dockerImage,
+		DockerRegistryURL:      "",
+		DockerRegistryUsername: "",
+		DockerRegistryPassword: "",
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	deploymentYAML, err := handler.ComposeDeploymentYAML(deploymentSpec, deploymentName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	err = handler.CreateDeployment(deploymentYAML)
+	if err != nil {
+		log.Warning("failed to create deployment")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create deployment"}, e.executorPrvKey)
+		return
+	}
+
+	err = e.client.Close(process.ID, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) undeploy(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 1 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	deploymentNameIf := process.FunctionSpec.Args[0]
+	deploymentName, ok := deploymentNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":      process.ID,
+		"ExecutorID":     e.executorID,
+		"Namespace":      e.executorNamespace,
+		"DeploymentName": deploymentName}).
+		Info("Undeploying")
+
+	err = handler.DeleteDeployment(deploymentName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	err = e.client.Close(process.ID, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) scale(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 2 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	deploymentNameIf := process.FunctionSpec.Args[0]
+	deploymentName, ok := deploymentNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	podsIf := process.FunctionSpec.Args[1]
+	podsFloat, ok := podsIf.(float64)
+	if !ok {
+		log.Warning("pods is not a int")
+		err = e.client.Fail(process.ID, []string{"Invalid argument, pods is not a int"}, e.executorPrvKey)
+		return
+	}
+	pods := int(podsFloat)
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":      process.ID,
+		"ExecutorID":     e.executorID,
+		"Namespace":      e.executorNamespace,
+		"Pods":           pods,
+		"DeploymentName": deploymentName}).
+		Info("Scaling")
+
+	err = handler.SetScale(pods, deploymentName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	err = e.client.Close(process.ID, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getScale(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 1 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	deploymentNameIf := process.FunctionSpec.Args[0]
+	deploymentName, ok := deploymentNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":      process.ID,
+		"ExecutorID":     e.executorID,
+		"Namespace":      e.executorNamespace,
+		"DeploymentName": deploymentName}).
+		Info("Getting scale")
+
+	scale, err := handler.GetScale(deploymentName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = scale
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getDeployments(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 0 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"Namespace":  e.executorNamespace}).
+		Info("Getting deployments")
+
+	deploymentNames, err := handler.GetDeploymentNames()
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+	json, err := json.Marshal(deploymentNames)
+	if err != nil {
+		log.Warning("failed to marshal json")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = string(json)
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getPods(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 0 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"Namespace":  e.executorNamespace}).
+		Info("Getting pods names ...")
+
+	podNames, err := handler.GetPodNames()
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+	json, err := json.Marshal(podNames)
+	if err != nil {
+		log.Warning("failed to marshal json")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = string(json)
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getNumberOfPods(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 0 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"Namespace":  e.executorNamespace}).
+		Info("Getting number of pods ...")
+
+	podNames, err := handler.GetPodNames()
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+	count := len(podNames)
+	json, err := json.Marshal(count)
+	if err != nil {
+		log.Warning("failed to marshal json")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = string(json)
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getContainers(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 1 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	podNameIf := process.FunctionSpec.Args[0]
+	podName, ok := podNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, podname is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"PodName":    podName,
+		"Namespace":  e.executorNamespace}).
+		Info("Getting container names")
+
+	containerNames, err := handler.GetContainerNames(podName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+	json, err := json.Marshal(containerNames)
+	if err != nil {
+		log.Warning("failed to marshal json")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = string(json)
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) getNumberOfContainers(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 1 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+
+	podNameIf := process.FunctionSpec.Args[0]
+	podName, ok := podNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, podname is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"PodName":    podName,
+		"Namespace":  e.executorNamespace}).
+		Info("Getting number of containers")
+
+	containerNames, err := handler.GetContainerNames(podName)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	output := make([]interface{}, 1)
+	output[0] = len(containerNames)
+	err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
+func (e *Executor) restart(process *core.Process) {
+	var err error
+	if len(process.FunctionSpec.Args) != 1 {
+		log.Info(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
+		return
+	}
+	podNameIf := process.FunctionSpec.Args[0]
+	podName, ok := podNameIf.(string)
+	if !ok {
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":  process.ID,
+		"ExecutorID": e.executorID,
+		"Namespace":  e.executorNamespace,
+		"PodName":    podName}).
+		Info("Restarting")
+
+	handler, err := k8s.CreateK8sHandler(e.executorNamespace)
+	if err != nil {
+		log.Warning("failed to create k8s handler")
+		err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
+		return
+	}
+
+	err = handler.RestartPod(podName)
+	if err != nil {
+		log.Warning("failed to restart pod")
+		log.Warning(err)
+		err = e.client.Fail(process.ID, []string{"Failed to restart pod"}, e.executorPrvKey)
+		return
+	}
+
+	err = e.client.Close(process.ID, e.executorPrvKey)
+	log.Info("Closing process")
+}
+
 func (e *Executor) ServeForEver() error {
 	for {
 		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
@@ -185,234 +693,28 @@ func (e *Executor) ServeForEver() error {
 
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
-		funcName := process.FunctionSpec.FuncName
-		if funcName == "deploy" {
-			if len(process.FunctionSpec.Args) != 5 {
-				log.Info(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
-				continue
-			}
-			deploymentNameIf := process.FunctionSpec.Args[0]
-			deploymentName, ok := deploymentNameIf.(string)
-			if !ok {
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
-				continue
-			}
-
-			podsIf := process.FunctionSpec.Args[1]
-			podsFloat, ok := podsIf.(float64)
-			if !ok {
-				log.Warning("pods is not a int")
-				err = e.client.Fail(process.ID, []string{"Invalid argument, pods is not a int"}, e.executorPrvKey)
-				continue
-			}
-			pods := int(podsFloat)
-
-			executorsIf := process.FunctionSpec.Args[2]
-			executorsFloat, ok := executorsIf.(float64)
-			if !ok {
-				log.Warning("executors is not a int")
-				err = e.client.Fail(process.ID, []string{"Invalid argument, executors is not a int"}, e.executorPrvKey)
-				continue
-			}
-			executors := int(executorsFloat)
-
-			ramdiskIf := process.FunctionSpec.Args[3]
-			ramdisk, ok := ramdiskIf.(bool)
-			if !ok {
-				log.Warning("ramdisk is not a bool")
-				err = e.client.Fail(process.ID, []string{"Invalid argument, ramdisk is not a bool"}, e.executorPrvKey)
-				continue
-			}
-
-			dockerImageIf := process.FunctionSpec.Args[4]
-			dockerImage, ok := dockerImageIf.(string)
-			if !ok {
-				log.Warning("dockerImage is not a string")
-				err = e.client.Fail(process.ID, []string{"Invalid argument, dockerImage is not a string"}, e.executorPrvKey)
-				continue
-			}
-
-			log.WithFields(log.Fields{
-				"ProcessID":      process.ID,
-				"ExecutorID":     e.executorID,
-				"DockerImage":    dockerImage,
-				"Namespace":      e.executorNamespace,
-				"Ramdisk":        ramdisk,
-				"Pods":           pods,
-				"Executors":      executors,
-				"DeploymentName": deploymentName}).
-				Info("Deploying ...")
-
-			deploymentSpec := k8s.DeploymentSpec{
-				TestMode:               false,
-				DeploymentName:         deploymentName,
-				Namespace:              e.executorNamespace,
-				NumberOfPods:           pods,
-				ExecutorsPerPod:        executors,
-				ColoniesTLS:            !e.coloniesInsecure,
-				ColoniesServerHost:     e.coloniesServerHost,
-				ColoniesServerPort:     e.coloniesServerPort,
-				ColoniesColonyID:       e.colonyID,
-				ColoniesColonyPrvKey:   e.colonyPrvKey,
-				ColoniesExecutorID:     e.executorID,
-				ColoniesExecutorPrvKey: e.executorPrvKey,
-				EnableRamdisk:          false,
-				RamdiskSize:            "",
-				DockerImage:            dockerImage,
-				DockerRegistryURL:      "",
-				DockerRegistryUsername: "",
-				DockerRegistryPassword: "",
-			}
-
-			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-
-			deploymentYAML, err := handler.ComposeDeploymentYAML(deploymentSpec, deploymentName)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-
-			err = handler.CreateDeployment(deploymentYAML)
-			if err != nil {
-				log.Warning("failed to create deployment")
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Failed to create deployment"}, e.executorPrvKey)
-				continue
-			}
-			err = e.client.Close(process.ID, e.executorPrvKey)
-			log.Info("Closing process")
-		} else if funcName == "undeploy" {
-			if len(process.FunctionSpec.Args) != 1 {
-				log.Info(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
-				continue
-			}
-
-			deploymentNameIf := process.FunctionSpec.Args[0]
-			deploymentName, ok := deploymentNameIf.(string)
-			if !ok {
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
-				continue
-			}
-
-			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-
-			log.WithFields(log.Fields{
-				"ProcessID":      process.ID,
-				"ExecutorID":     e.executorID,
-				"Namespace":      e.executorNamespace,
-				"DeploymentName": deploymentName}).
-				Info("Undeploying ...")
-
-			err = handler.DeleteDeployment(deploymentName)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-			err = e.client.Close(process.ID, e.executorPrvKey)
-			log.Info("Closing process")
-		} else if funcName == "scale" {
-			if len(process.FunctionSpec.Args) != 2 {
-				log.Info(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
-				continue
-			}
-
-			deploymentNameIf := process.FunctionSpec.Args[0]
-			deploymentName, ok := deploymentNameIf.(string)
-			if !ok {
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument, deploymentName is not a string"}, e.executorPrvKey)
-				continue
-			}
-
-			podsIf := process.FunctionSpec.Args[1]
-			podsFloat, ok := podsIf.(float64)
-			if !ok {
-				log.Warning("pods is not a int")
-				err = e.client.Fail(process.ID, []string{"Invalid argument, pods is not a int"}, e.executorPrvKey)
-				continue
-			}
-			pods := int(podsFloat)
-
-			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-
-			log.WithFields(log.Fields{
-				"ProcessID":      process.ID,
-				"ExecutorID":     e.executorID,
-				"Namespace":      e.executorNamespace,
-				"DeploymentName": deploymentName}).
-				Info("Scaling ...")
-
-			err = handler.SetScale(pods, deploymentName)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-			err = e.client.Close(process.ID, e.executorPrvKey)
-			log.Info("Closing process")
-		} else if funcName == "list" {
-			if len(process.FunctionSpec.Args) != 0 {
-				log.Info(err)
-				err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
-				continue
-			}
-
-			handler, err := k8s.CreateK8sHandler(e.executorNamespace)
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-
-			log.WithFields(log.Fields{
-				"ProcessID":  process.ID,
-				"ExecutorID": e.executorID,
-				"Namespace":  e.executorNamespace}).
-				Info("Listing deployments ...")
-
-			deploymentNames, err := handler.GetDeploymentNames()
-			if err != nil {
-				log.Warning("failed to create k8s handler")
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Failed to create k8s handler"}, e.executorPrvKey)
-				continue
-			}
-			json, err := json.Marshal(deploymentNames)
-			if err != nil {
-				log.Warning("failed to marshal json")
-				log.Warning(err)
-				err = e.client.Fail(process.ID, []string{"Failed to marshaljson "}, e.executorPrvKey)
-				continue
-			}
-			output := make([]interface{}, 1)
-			output[0] = string(json)
-			err = e.client.CloseWithOutput(process.ID, output, e.executorPrvKey)
-			log.Info("Closing process")
-		} else {
+		switch funcName := process.FunctionSpec.FuncName; funcName {
+		case "deploy":
+			e.deploy(process)
+		case "undeploy":
+			e.undeploy(process)
+		case "scale":
+			e.scale(process)
+		case "get_scale":
+			e.getScale(process)
+		case "get_deployments":
+			e.getDeployments(process)
+		case "get_pods":
+			e.getPods(process)
+		case "pods":
+			e.getNumberOfPods(process)
+		case "get_containers":
+			e.getContainers(process)
+		case "containers":
+			e.getNumberOfContainers(process)
+		case "restart":
+			e.restart(process)
+		default:
 			log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "FuncName": funcName}).Info("Unsupported function")
 			err = e.client.Fail(process.ID, []string{"Unsupported function: " + funcName}, e.executorPrvKey)
 			log.Info(err)

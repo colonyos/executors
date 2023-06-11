@@ -349,3 +349,42 @@ func (handler *K8sHandler) PrintStdOut(podName string, containerName string, fol
 
 	return nil
 }
+
+func (handler *K8sHandler) GetStdOut(podName string, containerName string) (string, error) {
+	count := int64(100)
+	podLogOptions := v1c.PodLogOptions{
+		Container: containerName,
+		Follow:    false,
+		TailLines: &count,
+	}
+
+	podLogRequest := handler.clientset.CoreV1().Pods(handler.namespace).GetLogs(podName, &podLogOptions)
+
+	stream, err := podLogRequest.Stream(context.TODO())
+	if err != nil {
+		return "", err
+	}
+
+	defer stream.Close()
+
+	allLines := ""
+	for {
+		buf := make([]byte, 2000)
+		numBytes, err := stream.Read(buf)
+		if numBytes == 0 {
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		message := string(buf[:numBytes])
+		allLines += message
+
+	}
+
+	return allLines, nil
+}

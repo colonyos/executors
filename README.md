@@ -20,15 +20,15 @@ This repo contains implementation of several Colonies executors.
 | **sleep**(milliseconds::string) | Sleep.       |
 
 ### K8s executor
-| Function                                                                                               | Description                 |
-| :-----------                                                                                           | :-----------                |
-| **deploy**(deploymentname::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) | Deploy an executor on K8s.  |
-| **undeploy**(deploymentname::string)                                                                   | Undeploy an executor on K8s |
-| **get_deployments**()                                                                                  | List deployments            |
-| **scale**(deploymentname::string, pods::int)                                                           | Scale deployments           |
-| **get_pods**(deploymentname::string)                                                                   | List pods                   |
-| **pods**(deploymentname::string)                                                                       | Get number of pods          |
-| **get_containers**(podname::string)                                                                    | List container names        |
-| **containers**(podname::string)                                                                        | Get number of containers    |
-| **restart**(podname::string)                                                                           | Restart pod                 |
-| **get_output**(podname::string, containername::string)                                                 | Get container output        |
+| Function                                                                                               | Description                       |
+| :-----------                                                                                           | :-----------                      |
+| **deploy**(deploymentname::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) | Deploy an executor on K8s.        |
+| **undeploy**(deploymentname::string)                                                                   | Undeploy an executor on K8s       |
+| **get_deployments**()                                                                                  | List deployments                  | 
+| **scale**(deploymentname::string, pods::int)                                                           | Scale deployments                 |
+| **get_scale**(deploymentname::string)                                                                  | Get scale factor of a deployments |
+| **get_pods**(deploymentname::string)                                                                   | List pods                         |
+| **pods**(deploymentname::string)                                                                       | Get number of pods                |
+| **get_containers**(podname::string)                                                                    | List container names              |
+| **containers**(podname::string)                                                                        | Get number of containers          |
+| **restart**(podname::string)                                                                           | Restart pod                       |
