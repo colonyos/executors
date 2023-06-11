@@ -10,25 +10,25 @@ This repo contains implementation of several Colonies executors.
 
 ## Colonies functions
 ### Backup executor
-| Description                 | Function                                                                                               |
-| :-----------                | :-----------                                                                                           |
-| Trigger a backup            | **backup**()                                                                                           |
+| Function     | Description      |
+| :----------- | :-----------     |
+| **backup**() | Trigger a backup |
 
 ### Sleep executor
-| Description                 | Function                                                                                               |
-| :-----------                | :-----------                                                                                           |
-| Sleep                       | **sleep**(milliseconds::string)                                                                        |
+| Function                        | Description  |
+| :-----------                    | :----------- |
+| **sleep**(milliseconds::string) | Sleep.       |
 
 ### K8s executor
-| Description                 | Function                                                                                               |
-| :-----------                | :-----------                                                                                           |
-| Deploy an executor on K8s   | **deploy**(deploymentname::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) |
-| Undeploy an executor on K8s | **undeploy**(name::string)                                                                             |
-| List deployments            | **get_deployments**()                                                                                  |
-| Scale deployments           | **scale**(name::string, pods::int)                                                                     |
-| List pods                   | **get_pods**(deploymentname::string)                                                                   |
-| Get number of pods          | **pods**(name::string)                                                                                 |
-| List container names        | **get_containers**(podname::string)                                                                    |
-| Get number of containers    | **containers**(podname::string)                                                                        |
-| Restart pod                 | **restart**(podname::string)                                                                           |
-| Get output                  | **get_output**(podname::string, containername::string)                                                 |
+| Function                                                                                               | Description                 |
+| :-----------                                                                                           | :-----------                |
+| **deploy**(deploymentname::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) | Deploy an executor on K8s.  |
+| **undeploy**(deploymentname::string)                                                                   | Undeploy an executor on K8s |
+| **get_deployments**()                                                                                  | List deployments            |
+| **scale**(deploymentname::string, pods::int)                                                           | Scale deployments           |
+| **get_pods**(deploymentname::string)                                                                   | List pods                   |
+| **pods**(deploymentname::string)                                                                       | Get number of pods          |
+| **get_containers**(podname::string)                                                                    | List container names        |
+| **containers**(podname::string)                                                                        | Get number of containers    |
+| **restart**(podname::string)                                                                           | Restart pod                 |
+| **get_output**(podname::string, containername::string)                                                 | Get container output        |
