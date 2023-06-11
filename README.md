@@ -5,4 +5,4 @@ This repo contains implementation of several Colonies executors.
 | :---     | :-----------                                       | :-----------                                                                                                                  |
 | backup   | An executor to backup PostgreSQL databases.        | **backup**()                                                                                                                  |
 | sleep    | An executor that sleeps. Can be used for testings. | **sleep**(milliseconds::string)                                                                                               |
-| k8s      | Deploys other executors on Kubernetes.             | **deploy**(name::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) &nbsp; **undeploy**(name::string |
+| k8s      | Deploys other executors on Kubernetes.             | **deploy**(name::string, pods::int, executorperpod::int, ramdisk::bool, dockerimage::string) \n **undeploy**(name::string     |
