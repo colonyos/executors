@@ -4,6 +4,6 @@
     },
     "funcname": "undeploy",
     "args": [
-        "sleep-executor"
+        "echo-executor"
     ]
 }

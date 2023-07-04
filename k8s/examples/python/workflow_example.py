@@ -25,7 +25,7 @@ wf.add(f, nodename="deploy", dependencies=[])
 deps = []
 for i in range(10):
     f = func_spec(func="sleep",
-                  args=["1000"],
+                  args=["10000"],
                   colonyid=colonyid,
                   executortype="sleep",
                   priority=1,

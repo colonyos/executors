@@ -1,3 +1,3 @@
 #!/bin/bash
 
-colonies function submit --spec ./undeploy.json
+colonies function submit --spec ./undeploy.json --wait

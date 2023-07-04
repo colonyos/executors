@@ -164,14 +164,14 @@ func (e *Executor) Shutdown() error {
 	return nil
 }
 
-func (e *Executor) deploy(process *core.Process) {
+func (e *Executor) deployExecutor(process *core.Process) {
 	var err error
-	if len(process.FunctionSpec.Args) != 5 {
+	if len(process.FunctionSpec.KwArgs) != 5 {
 		log.Info(err)
 		err = e.client.Fail(process.ID, []string{"Invalid argument"}, e.executorPrvKey)
 		return
 	}
-	deploymentNameIf := process.FunctionSpec.Args[0]
+	deploymentNameIf := process.FunctionSpec.KwArgs["deployment_name"]
 	deploymentName, ok := deploymentNameIf.(string)
 	if !ok {
 		log.Warning(err)
@@ -179,7 +179,7 @@ func (e *Executor) deploy(process *core.Process) {
 		return
 	}
 
-	podsIf := process.FunctionSpec.Args[1]
+	podsIf := process.FunctionSpec.KwArgs["pods"]
 	podsFloat, ok := podsIf.(float64)
 	if !ok {
 		log.Warning("pods is not a int")
@@ -188,7 +188,7 @@ func (e *Executor) deploy(process *core.Process) {
 	}
 	pods := int(podsFloat)
 
-	executorsIf := process.FunctionSpec.Args[2]
+	executorsIf := process.FunctionSpec.KwArgs["executors_per_pod"]
 	executorsFloat, ok := executorsIf.(float64)
 	if !ok {
 		log.Warning("executors is not a int")
@@ -197,7 +197,7 @@ func (e *Executor) deploy(process *core.Process) {
 	}
 	executors := int(executorsFloat)
 
-	ramdiskIf := process.FunctionSpec.Args[3]
+	ramdiskIf := process.FunctionSpec.KwArgs["ramdisk"]
 	ramdisk, ok := ramdiskIf.(bool)
 	if !ok {
 		log.Warning("ramdisk is not a bool")
@@ -205,7 +205,7 @@ func (e *Executor) deploy(process *core.Process) {
 		return
 	}
 
-	dockerImageIf := process.FunctionSpec.Args[4]
+	dockerImageIf := process.FunctionSpec.KwArgs["image"]
 	dockerImage, ok := dockerImageIf.(string)
 	if !ok {
 		log.Warning("dockerImage is not a string")
@@ -694,8 +694,8 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		switch funcName := process.FunctionSpec.FuncName; funcName {
-		case "deploy":
-			e.deploy(process)
+		case "deploy_executor":
+			e.deployExecutor(process)
 		case "undeploy":
 			e.undeploy(process)
 		case "scale":

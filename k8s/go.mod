@@ -3,7 +3,7 @@ module github.com/colonyos/executors/k8s
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.1.2
+	github.com/colonyos/colonies v1.2.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.1
