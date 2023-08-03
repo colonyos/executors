@@ -50,3 +50,8 @@ This repo contains implementation of several Colonies executors.
 | Function        | Description                                                             |
 | :-----------    | :-----------                                                            |
 | **python_code** | Injects the python code into the Python session and register a function |
+
+### Machine Learning executor
+| Function        | Description                                                             |
+| :-----------    | :-----------                                                            |
+| **execute**     | Executes python script.                                                 |

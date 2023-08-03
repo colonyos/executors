@@ -1,0 +1,9 @@
+{
+    "conditions": {
+        "executortype": "unix"
+    },
+    "funcname": "ls",
+    "args": [
+        "-al"
+    ]
+}
