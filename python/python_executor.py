@@ -9,9 +9,9 @@ import sys
 
 class PythonExecutor:
     def __init__(self):
-        colonies_tls = os.getenv("COLONIES_TLS")
         colonies_host = os.getenv("COLONIES_SERVER_HOST")
         colonies_port  = os.getenv("COLONIES_SERVER_PORT")
+        colonies_tls = os.getenv("COLONIES_SERVER_TLS")
         colonyid  = os.getenv("COLONIES_COLONY_ID")
         colony_prvkey  = os.getenv("COLONIES_COLONY_PRVKEY")
         if colonies_tls == "true":
