@@ -119,16 +119,33 @@ func createExecutorWithKey(colonyID string) (*core.Executor, string, string, err
 	}
 
 	executor := core.CreateExecutor(executorID, "ml", "ml-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
-	executor.Capabilities.Software.Name = "Colonies ML Kubernetes Executor"
-	executor.Capabilities.Software.Type = "ml"
-	executor.Capabilities.Software.Version = "1.0.0-beta1"
-	executor.Capabilities.Hardware.CPU = "32000m"
-	executor.Capabilities.Hardware.GPU.Count = 1
-	executor.Capabilities.Hardware.GPU.Name = "NVIDIA GeForce RTX 3080 Ti"
-	executor.Capabilities.Hardware.Model = "AMD Ryzen 9 5950X (32) @ 3.400GHz"
-	executor.Capabilities.Hardware.Model = "80337Mi"
-	executor.Capabilities.Hardware.Storage = "10Gi"
-	executor.Location.Description = "Rutvik"
+	executor.Capabilities.Software.Name = os.Getenv("EXECUTOR_SW_NAME")
+	executor.Capabilities.Software.Type = os.Getenv("EXECUTOR_SW_TYPE")
+	executor.Capabilities.Software.Version = os.Getenv("EXECUTOR_SW_VERSION")
+	executor.Capabilities.Hardware.CPU = os.Getenv("EXECUTOR_HW_CPU")
+	executor.Capabilities.Hardware.Model = os.Getenv("EXECUTOR_HW_MODEL")
+	executor.Capabilities.Hardware.Memory = os.Getenv("EXECUTOR_HW_MEM")
+	executor.Capabilities.Hardware.Storage = os.Getenv("EXECUTOR_HW_STORAGE")
+	gpuCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
+	gpuCount, err := strconv.Atoi(gpuCountStr)
+	if err != nil {
+		log.Error("Failed to set gpu count")
+	}
+	executor.Capabilities.Hardware.GPU.Count = gpuCount
+	executor.Capabilities.Hardware.GPU.Name = os.Getenv("EXECUTOR_HW_GPU_NAME")
+	executor.Location.Description = os.Getenv("EXECUTOR_LOCATION_DESC")
+	longStr := os.Getenv("EXECUTOR_LOCATION_LONG")
+	long, err := strconv.ParseFloat(longStr, 64)
+	if err != nil {
+		log.Error("Failed to set location long")
+	}
+	executor.Location.Long = long
+	latStr := os.Getenv("EXECUTOR_LOCATION_LONG")
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		log.Error("Failed to set location long")
+	}
+	executor.Location.Lat = lat
 
 	return executor, executorID, executorPrvKey, nil
 }
