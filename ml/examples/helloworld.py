@@ -1,2 +1,0 @@
-print("ewgweg")
-print("helloworld")

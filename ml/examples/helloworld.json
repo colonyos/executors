@@ -1,0 +1,22 @@
+{
+    "conditions": {
+        "executortype": "ml"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "snapshots": [
+            {
+                "name": "src1",
+                "dir": "/tmp/helloworld"
+            },
+            {
+                "name": "data1",
+                "dir": "/tmp/data"
+            }
+        ],
+        "cmd": "python3",
+        "args": [
+            "/tmp/helloworld/helloworld.py"
+        ]
+    }
+}
