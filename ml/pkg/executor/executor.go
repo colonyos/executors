@@ -217,7 +217,6 @@ func (e *Executor) parseSnapshotArg(process *core.Process) ([]snapshotArg, error
 
 	var snapshotArgsMap []map[string]string
 	for _, item := range snapshotArgsIfArr.([]interface{}) {
-		fmt.Println(item)
 		if m, ok := item.(map[string]interface{}); ok {
 			newMap := make(map[string]string)
 			for k, v := range m {
@@ -381,8 +380,6 @@ func (e *Executor) execute(process *core.Process) error {
 		return err
 	}
 
-	log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
-
 	return nil
 }
 
@@ -418,7 +415,7 @@ func (e *Executor) ServeForEver() error {
 			}
 
 			err = e.execute(process)
-			if err != nil {
+			if err == nil {
 				log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
 				err = e.client.Close(process.ID, e.executorPrvKey)
 				if err != nil {
