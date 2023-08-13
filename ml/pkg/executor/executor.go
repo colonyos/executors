@@ -231,7 +231,7 @@ type snapshotArg struct {
 func (e *Executor) parseSnapshotArg(process *core.Process) ([]snapshotArg, error) {
 	var s []snapshotArg
 
-	snapshotArgsIfArr, ok := process.FunctionSpec.KwArgs["snapshots"] //.([]map[string]string)
+	snapshotArgsIfArr, ok := process.FunctionSpec.KwArgs["snapshots"]
 	if !ok {
 		errMsg := "Failed to parse snapshots kwarg"
 		e.failProcess(process, errMsg)
@@ -239,7 +239,13 @@ func (e *Executor) parseSnapshotArg(process *core.Process) ([]snapshotArg, error
 	}
 
 	var snapshotArgsMap []map[string]string
-	for _, item := range snapshotArgsIfArr.([]interface{}) {
+	sarr, ok := snapshotArgsIfArr.([]interface{})
+	if !ok {
+		errMsg := "Failed to parse snapshots map"
+		e.failProcess(process, errMsg)
+		return s, errors.New(errMsg)
+	}
+	for _, item := range sarr {
 		if m, ok := item.(map[string]interface{}); ok {
 			newMap := make(map[string]string)
 			for k, v := range m {
@@ -436,6 +442,8 @@ func (e *Executor) ServeForEver() error {
 
 			err = e.downloadSnapshots(snapshotsArg)
 			if err != nil {
+				errMsg := "Failed to parse snapshots kwarg"
+				e.failProcess(process, errMsg)
 				continue
 			}
 

@@ -6,11 +6,11 @@
     "kwargs": {
         "snapshots": [
             {
-                "name": "src1",
+                "name": "srcsnapshot",
                 "dir": "/tmp/helloworld"
             },
             {
-                "name": "data1",
+                "name": "datasnapshot",
                 "dir": "/tmp/data"
             }
         ],
