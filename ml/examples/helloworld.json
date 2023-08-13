@@ -1,12 +1,12 @@
 {
     "conditions": {
-        "executortype": "ml"
+        "executortype": "gpu-mlexecutor"
     },
     "funcname": "execute",
     "kwargs": {
         "snapshots": [
             {
-                "name": "src2",
+                "name": "src1",
                 "dir": "/tmp/helloworld"
             },
             {

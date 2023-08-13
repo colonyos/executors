@@ -1,0 +1,18 @@
+{
+    "conditions": {
+        "executortype": "gpu-mlexecutor"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "snapshots": [
+            {
+                "name": "src1",
+                "dir": "/tmp/xor"
+            }
+        ],
+        "cmd": "python3",
+        "args": [
+            "/tmp/xor/xor.py"
+        ]
+    }
+}

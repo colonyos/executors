@@ -118,7 +118,13 @@ func createExecutorWithKey(colonyID string) (*core.Executor, string, string, err
 		return nil, "", "", err
 	}
 
-	executor := core.CreateExecutor(executorID, "ml", "ml-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
+	executorType := os.Getenv("EXECUTOR_TYPE")
+	if executorType == "" {
+		log.Debug("Executor type not specifed, defaulting to ml")
+		executorType = "ml"
+	}
+
+	executor := core.CreateExecutor(executorID, executorType, executorType+"-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
 	executor.Capabilities.Software.Name = os.Getenv("EXECUTOR_SW_NAME")
 	executor.Capabilities.Software.Type = os.Getenv("EXECUTOR_SW_TYPE")
 	executor.Capabilities.Software.Version = os.Getenv("EXECUTOR_SW_VERSION")
@@ -288,7 +294,6 @@ func (e *Executor) downloadSnapshots(snapshotsArg []snapshotArg) error {
 		err = os.Mkdir(s.dir, 0755)
 		if err == nil {
 			log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
-			return err
 		}
 
 		err = fsClient.DownloadSnapshot(snapshot.ID, s.dir)
@@ -310,13 +315,16 @@ func (e *Executor) execute(process *core.Process) error {
 	}
 
 	argsIf := process.FunctionSpec.KwArgs["args"]
-	argsIfArray := argsIf.([]interface{})
-	arrStrArray := make([]string, len(argsIfArray))
+	argsIfArray, ok := argsIf.([]interface{})
+	var argsStr string
+	if ok {
+		arrStrArray := make([]string, len(argsIfArray))
 
-	for i, v := range argsIfArray {
-		arrStrArray[i] = v.(string)
+		for i, v := range argsIfArray {
+			arrStrArray[i] = v.(string)
+		}
+		argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
 	}
-	argsStr := strArr2Str(ifArr2StringArr(argsIfArray))
 
 	log.WithFields(log.Fields{"Cmd": cmd, "Args": argsStr}).Info("Executing")
 

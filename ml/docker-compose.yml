@@ -1,0 +1,46 @@
+version: '3'
+services:
+  executor:
+    image: colonyos/mlexecutor:v1.0.2 
+    container_name: ml-execitor
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      LANG: "en_US.UTF-8"
+      LANGUAGE: "en_US.UTF-8"
+      LC_ALL: "en_US.UTF-8"
+      LC_CTYPE: "UTF-8"
+      TZ: "Europe/Stockholm"
+      COLONIES_TLS: "true"
+      COLONIES_SERVER_HOST: "colonies.colonyos.io"
+      COLONIES_SERVER_PORT: "443"
+      COLONIES_COLONY_ID: "4787a5071856a4acf702b2ffcea422e3237a679c681314113d86139461290cf4"
+      COLONIES_COLONY_PRVKEY: "ba949fa134981372d6da62b6a56f336ab4d843b22c02a4257dcf7d0d73097514"
+      COLONIES_EXECUTOR_ID: "3fc05cf3df4b494e95d6a3d297a34f19938f7daa7422ab0d4f794454133341ac"
+      COLONIES_EXECUTOR_PRVKEY: "ddf7f7791208083b6a9ed975a72684f6406a269cfa36f1b1c32045c0a71fff05"
+      AWS_S3_ENDPOINT: "s3.colonyos.io:443"
+      AWS_S3_ACCESSKEY: "hGi9unKnSuHeGwuOS3mo"
+      AWS_S3_SECRETKEY: "sdT56nOLDS7kUwxaztTHHLAzextZhKuAHcCxzziu"
+      AWS_S3_REGION_KEY: ""
+      AWS_S3_BUCKET: "colonies-prod"
+      AWS_S3_TLS: "true"
+      AWS_S3_SKIPVERIFY: "false"
+      EXECUTOR_TYPE: "gpu-mlexecutor"
+      EXECUTOR_SW_NAME: "colonyos/mlexecutor:v1.0.2"
+      EXECUTOR_SW_TYPE: "docker"
+      EXECUTOR_SW_VERSION: "n/a"
+      EXECUTOR_HW_CPU: "32000m"
+      EXECUTOR_HW_MODEL: "AMD Ryzen 9 5950X (32) @ 3.400GHz"
+      EXECUTOR_HW_MEM: "80337Mi"
+      EXECUTOR_HW_STORAGE: "10Gi"
+      EXECUTOR_HW_GPU_COUNT: "1"
+      EXECUTOR_HW_GPU_NAME: "nvidia-gtx-2080ti"
+      EXECUTOR_LOCATION_DESC: "65.664406"
+      EXECUTOR_LOCATION_LONG: "22.086844"
+      EXECUTOR_LOCATION_LAT: "Rutvik"

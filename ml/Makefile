@@ -1,7 +1,8 @@
 all: build
 .PHONY: all build
 
-IMAGE ?= colonyos/mlexecutor:v1.0.1
+BUILD_IMAGE ?= colonyos/mlexecutor
+PUSH_IMAGE ?= colonyos/mlexecutor:v1.0.2
 
 VERSION := $(shell git rev-parse --short HEAD)
 BUILDTIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -13,7 +14,8 @@ build:
 	@CGO_ENABLED=0 go build -ldflags="-s -w $(GOLDFLAGS)" -o ./bin/ml_executor ./cmd/main.go
 
 container:
-	docker build -t $(IMAGE) .
+	docker build -t $(BUILD_IMAGE) .
 
 push:
-	docker push $(IMAGE)
+	docker tag $(BUILD_IMAGE) $(PUSH_IMAGE) 
+	docker push $(PUSH_IMAGE)

@@ -1,0 +1,10 @@
+{
+    "conditions": {
+        "executortype": "gpu-mlexecutor"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "snapshots": [],
+        "cmd": "nvidia-smi"
+    }
+}
