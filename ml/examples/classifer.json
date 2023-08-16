@@ -1,0 +1,22 @@
+{
+    "conditions": {
+        "executortype": "gpu-mlexecutor"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "python3",
+        "args": [
+            "/tmp/classifier/classifier.py"
+        ],
+        "keep_snapshots": false
+    },
+    "fs": [
+        {
+            "label": "src",
+            "dir": "/tmp/classifier"
+        }
+    ],
+    "maxwaittime": -1,
+    "maxexectime": 100,
+    "maxretries": 3
+}

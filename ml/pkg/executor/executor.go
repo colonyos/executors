@@ -223,65 +223,7 @@ func (e *Executor) failProcess(process *core.Process, errMsg string) {
 	}
 }
 
-type snapshotArg struct {
-	name string
-	dir  string
-}
-
-func (e *Executor) parseSnapshotArg(process *core.Process) ([]snapshotArg, error) {
-	var s []snapshotArg
-
-	snapshotArgsIfArr, ok := process.FunctionSpec.KwArgs["snapshots"]
-	if !ok {
-		errMsg := "Failed to parse snapshots kwarg"
-		e.failProcess(process, errMsg)
-		return s, errors.New(errMsg)
-	}
-
-	var snapshotArgsMap []map[string]string
-	sarr, ok := snapshotArgsIfArr.([]interface{})
-	if !ok {
-		errMsg := "Failed to parse snapshots map"
-		e.failProcess(process, errMsg)
-		return s, errors.New(errMsg)
-	}
-	for _, item := range sarr {
-		if m, ok := item.(map[string]interface{}); ok {
-			newMap := make(map[string]string)
-			for k, v := range m {
-				if strVal, ok := v.(string); ok {
-					newMap[k] = strVal
-				} else {
-					errMsg := "Failed to parse snapshots kwarg"
-					e.failProcess(process, errMsg)
-					return s, errors.New(errMsg)
-				}
-			}
-			snapshotArgsMap = append(snapshotArgsMap, newMap)
-		}
-	}
-
-	for _, m := range snapshotArgsMap {
-		dir, ok := m["dir"]
-		if !ok {
-			errMsg := "Failed to parse snapshot dir key"
-			e.failProcess(process, errMsg)
-			return s, errors.New(errMsg)
-		}
-		snapshotName, ok := m["name"]
-		if !ok {
-			errMsg := "Failed to parse snapshot name key"
-			e.failProcess(process, errMsg)
-			return s, errors.New(errMsg)
-		}
-
-		s = append(s, snapshotArg{name: snapshotName, dir: dir})
-	}
-
-	return s, nil
-}
-
-func (e *Executor) downloadSnapshots(snapshotsArg []snapshotArg) error {
+func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
 		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
@@ -289,20 +231,20 @@ func (e *Executor) downloadSnapshots(snapshotsArg []snapshotArg) error {
 		return err
 	}
 
-	for _, s := range snapshotsArg {
-		snapshot, err := e.client.GetSnapshotByName(e.colonyID, s.name, e.executorPrvKey)
+	for _, syncDir := range filesystem {
+		snapshot, err := e.client.GetSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
 		if err != nil {
 			log.WithFields(log.Fields{"Error": err}).Error("Failed to resolve snapshot Id")
 			return err
 		}
-		log.WithFields(log.Fields{"SnapshotName": s.name, "SnapshotID": snapshot.ID, "Dir": s.dir}).Info("Downloading snapshot")
+		log.WithFields(log.Fields{"Label": syncDir.Label, "SnapshotID": snapshot.ID, "Dir": syncDir.Dir}).Info("Downloading snapshot")
 
-		err = os.Mkdir(s.dir, 0755)
-		if err == nil {
+		err = os.MkdirAll(syncDir.Dir, 0755)
+		if err != nil {
 			log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 		}
 
-		err = fsClient.DownloadSnapshot(snapshot.ID, s.dir)
+		err = fsClient.DownloadSnapshot(snapshot.ID, syncDir.Dir)
 		if err != nil {
 			log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
 			return err
@@ -435,12 +377,7 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			snapshotsArg, err := e.parseSnapshotArg(process)
-			if err != nil {
-				continue
-			}
-
-			err = e.downloadSnapshots(snapshotsArg)
+			err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
 			if err != nil {
 				errMsg := "Failed to parse snapshots kwarg"
 				e.failProcess(process, errMsg)
@@ -453,6 +390,25 @@ func (e *Executor) ServeForEver() error {
 				err = e.client.Close(process.ID, e.executorPrvKey)
 				if err != nil {
 					log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as successful")
+				}
+				keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
+				keepSnapshots, ok := keepSnapshotsIf.(bool)
+				if !ok {
+					log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Failed to parse keep snapshot flag")
+				}
+				if !keepSnapshots {
+					for _, syncDir := range process.FunctionSpec.Filesystem {
+						// fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
+						// if err != nil {
+						// 	log.withfields(log.fields{"error": err, "snapshotid": syncdir.snapshotid}).error("failed to create fsclient, cannot delete snapshot")
+						// }
+						err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+						if err != nil {
+							log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+						} else {
+							log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
+						}
+					}
 				}
 			}
 		} else {

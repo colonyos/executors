@@ -3,8 +3,7 @@ module github.com/colonyos/executors/ml
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.5.0
-	github.com/minio/minio-go/v7 v7.0.61
+	github.com/colonyos/colonies v1.5.2-beta1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 )
@@ -45,6 +44,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/minio/minio-go/v7 v7.0.61 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect

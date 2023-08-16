@@ -1,9 +1,9 @@
 import time
 import sys
 
-print("sleeping 10 seconds\n")
+print("Sleeping 5 seconds apa\n")
 sys.stdout.flush()
 
-time.sleep(10)
+time.sleep(5)
 
-print("done sleeping, helloworld!!!\n")
+print("Done sleeping, helloworld!!!\n")

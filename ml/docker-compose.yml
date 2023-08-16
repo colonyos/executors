@@ -1,7 +1,7 @@
 version: '3'
 services:
   executor:
-    image: colonyos/mlexecutor:v1.0.2 
+    image: colonyos/mlexecutor:v1.0.4
     container_name: ml-execitor
     restart: always
     deploy:
@@ -32,7 +32,7 @@ services:
       AWS_S3_TLS: "true"
       AWS_S3_SKIPVERIFY: "false"
       EXECUTOR_TYPE: "gpu-mlexecutor"
-      EXECUTOR_SW_NAME: "colonyos/mlexecutor:v1.0.2"
+      EXECUTOR_SW_NAME: "colonyos/mlexecutor:v1.0.3"
       EXECUTOR_SW_TYPE: "docker"
       EXECUTOR_SW_VERSION: "n/a"
       EXECUTOR_HW_CPU: "32000m"
@@ -40,7 +40,7 @@ services:
       EXECUTOR_HW_MEM: "80337Mi"
       EXECUTOR_HW_STORAGE: "10Gi"
       EXECUTOR_HW_GPU_COUNT: "1"
-      EXECUTOR_HW_GPU_NAME: "nvidia-gtx-2080ti"
+      EXECUTOR_HW_GPU_NAME: "nvidia-gtx-3080ti"
       EXECUTOR_LOCATION_LONG: "22.086844"
       EXECUTOR_LOCATION_LAT: "65.664406"
-      EXECUTOR_LOCATION_DESC: "Rutvik"
+      EXECUTOR_LOCATION_DESC: "Rutvik Edge DC"

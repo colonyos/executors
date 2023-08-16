@@ -4,19 +4,23 @@
     },
     "funcname": "execute",
     "kwargs": {
-        "snapshots": [
-            {
-                "name": "srcsnapshot",
-                "dir": "/tmp/helloworld"
-            },
-            {
-                "name": "datasnapshot",
-                "dir": "/tmp/data"
-            }
-        ],
         "cmd": "python3",
         "args": [
             "/tmp/helloworld/helloworld.py"
-        ]
-    }
+        ],
+        "keep_snapshots": false
+    },
+    "fs": [
+        {
+            "label": "src",
+            "dir": "/tmp/helloworld"
+        },
+        {
+            "label": "data",
+            "dir": "/tmp/data"
+        }
+    ],
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
 }
