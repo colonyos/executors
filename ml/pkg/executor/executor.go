@@ -146,7 +146,7 @@ func createExecutorWithKey(colonyID string) (*core.Executor, string, string, err
 		log.Error("Failed to set location long")
 	}
 	executor.Location.Long = long
-	latStr := os.Getenv("EXECUTOR_LOCATION_LONG")
+	latStr := os.Getenv("EXECUTOR_LOCATION_LAT")
 	lat, err := strconv.ParseFloat(latStr, 64)
 	if err != nil {
 		log.Error("Failed to set location long")
@@ -232,22 +232,61 @@ func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 	}
 
 	for _, syncDir := range filesystem {
-		snapshot, err := e.client.GetSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
-		if err != nil {
-			log.WithFields(log.Fields{"Error": err}).Error("Failed to resolve snapshot Id")
-			return err
-		}
-		log.WithFields(log.Fields{"Label": syncDir.Label, "SnapshotID": snapshot.ID, "Dir": syncDir.Dir}).Info("Downloading snapshot")
+		fmt.Println(syncDir)
+		if syncDir.SnapshotID != "" {
+			snapshot, err := e.client.GetSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err, "SnapshotId": syncDir.SnapshotID}).Error("Failed to resolve snapshot Id")
+				return err
+			}
+			log.WithFields(log.Fields{"Label": syncDir.Label, "SnapshotId": snapshot.ID, "Dir": syncDir.Dir}).Info("Downloading snapshot")
 
-		err = os.MkdirAll(syncDir.Dir, 0755)
-		if err != nil {
-			log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
-		}
+			err = os.MkdirAll(syncDir.Dir, 0755)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
+			}
 
-		err = fsClient.DownloadSnapshot(snapshot.ID, syncDir.Dir)
-		if err != nil {
-			log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
-			return err
+			err = fsClient.DownloadSnapshot(snapshot.ID, syncDir.Dir)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
+				return err
+			}
+		} else {
+			log.Info("Ignoring downloading snapshot, snapshot Id was not set")
+		}
+	}
+
+	return nil
+}
+
+func (e *Executor) sync(filesystem []*core.SyncDir) error {
+	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
+	if err != nil {
+		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
+		log.Error(err)
+		return err
+	}
+
+	for _, syncDir := range filesystem {
+		if syncDir.SyncOnCompletion && syncDir.Label != "" && syncDir.Dir != "" {
+			err = os.MkdirAll(syncDir.Dir, 0755)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
+			}
+
+			syncplan, err := fsClient.CalcSyncPlan(syncDir.Dir, syncDir.Label, true)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
+				return err
+			}
+
+			err = fsClient.ApplySyncPlan(e.colonyID, syncplan)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err, "Label": syncDir.Label, "Dir": syncDir.Dir}).Error("Failed to apply sync plan")
+				return err
+			}
+		} else {
+			log.Info("Ignoring sync, SyncOnCompletion, Label and Dir were not set")
 		}
 	}
 
@@ -379,18 +418,13 @@ func (e *Executor) ServeForEver() error {
 		if process.FunctionSpec.FuncName == "execute" {
 			err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
 			if err != nil {
-				errMsg := "Failed to parse snapshots kwarg"
-				e.failProcess(process, errMsg)
+				log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to download snapshot")
+				e.failProcess(process, err.Error())
 				continue
 			}
 
 			err = e.execute(process)
 			if err == nil {
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
-				err = e.client.Close(process.ID, e.executorPrvKey)
-				if err != nil {
-					log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as successful")
-				}
 				keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
 				keepSnapshots, ok := keepSnapshotsIf.(bool)
 				if !ok {
@@ -398,17 +432,28 @@ func (e *Executor) ServeForEver() error {
 				}
 				if !keepSnapshots {
 					for _, syncDir := range process.FunctionSpec.Filesystem {
-						// fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
-						// if err != nil {
-						// 	log.withfields(log.fields{"error": err, "snapshotid": syncdir.snapshotid}).error("failed to create fsclient, cannot delete snapshot")
-						// }
-						err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
-						if err != nil {
-							log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
-						} else {
-							log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
+						if syncDir.SnapshotID != "" {
+							err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+							if err != nil {
+								log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+							} else {
+								log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
+							}
 						}
 					}
+				}
+
+				err = e.sync(process.FunctionSpec.Filesystem)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to sync")
+					e.failProcess(process, err.Error())
+					continue
+				}
+
+				log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
+				err = e.client.Close(process.ID, e.executorPrvKey)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as successful")
 				}
 			}
 		} else {

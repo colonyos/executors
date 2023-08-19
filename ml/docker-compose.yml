@@ -31,7 +31,7 @@ services:
       AWS_S3_BUCKET: "colonies-prod"
       AWS_S3_TLS: "true"
       AWS_S3_SKIPVERIFY: "false"
-      EXECUTOR_TYPE: "gpu-mlexecutor"
+      EXECUTOR_TYPE: "edge-mlexecutor"
       EXECUTOR_SW_NAME: "colonyos/mlexecutor:v1.0.3"
       EXECUTOR_SW_TYPE: "docker"
       EXECUTOR_SW_VERSION: "n/a"

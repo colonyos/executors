@@ -1,9 +1,11 @@
-import time
-import sys
+import os
 
-print("Sleeping 5 seconds apa\n")
-sys.stdout.flush()
+path = "/tmp/helloworld/result"
+isExist = os.path.exists(path)
+if not isExist:
+   os.makedirs(path)
 
-time.sleep(5)
+with open("/tmp/helloworld/result/helloworld.txt", 'w') as f:
+    f.write("helloworld 4")
 
-print("Done sleeping, helloworld!!!\n")
+print("Helloworld 4!!!\n")

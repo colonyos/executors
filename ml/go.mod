@@ -3,7 +3,7 @@ module github.com/colonyos/executors/ml
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.5.2-beta1
+	github.com/colonyos/colonies v1.5.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 )
