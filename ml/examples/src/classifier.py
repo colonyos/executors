@@ -8,6 +8,8 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 import pathlib
+import os
+import pickle
 
 dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
 data_dir = tf.keras.utils.get_file('flower_photos.tar', origin=dataset_url, extract=True)
@@ -82,4 +84,10 @@ history = model.fit(
   epochs=epochs
 )
 
+path = "/tmp/classifier/results"
+isExist = os.path.exists(path)
+if not isExist:
+   os.makedirs(path)
 
+with open('/tmp/classifier/results/history.pickle', 'wb') as file_pi:
+    pickle.dump(history.history, file_pi)

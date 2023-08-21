@@ -14,6 +14,11 @@
         {
             "label": "src",
             "dir": "/tmp/classifier"
+        },
+        {
+            "label": "result",
+            "dir": "/tmp/helloworld/result",
+            "sync_on_completion": true
         }
     ],
     "maxwaittime": -1,
