@@ -1,6 +1,6 @@
 {
     "conditions": {
-        "executortype": "gpu-mlexecutor"
+        "executortype": "hpc-executor"
     },
     "funcname": "execute",
     "kwargs": {
