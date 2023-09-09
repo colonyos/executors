@@ -1,0 +1,36 @@
+{
+    "conditions": {
+        "executortype": "gpu-mlexecutor",
+        "nodes": 2,
+        "processes": 2,
+        "mem": "10G",
+        "gpu": {
+            "count": 1
+        },
+        "walltime": 60
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "python3",
+        "docker-image": "python:3.12-rc-bookworm",
+        "rebuild-image": false,
+        "args": [
+            "/helloworld/src/helloworld.py"
+        ],
+        "keep_snapshots": false
+    },
+    "fs": [
+        {
+            "label": "helloworld_src",
+            "dir": "/helloworld/src"
+        },
+        {
+            "label": "helloworld_results",
+            "dir": "/helloworld/results",
+            "sync_on_completion": true
+        }
+    ],
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
+}

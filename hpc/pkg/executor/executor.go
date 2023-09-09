@@ -43,6 +43,7 @@ func ifArr2StringArr(ifarr []interface{}) []string {
 }
 
 type Executor struct {
+	verbose            bool
 	coloniesServerHost string
 	coloniesServerPort int
 	coloniesInsecure   bool
@@ -50,7 +51,19 @@ type Executor struct {
 	colonyPrvKey       string
 	executorID         string
 	executorPrvKey     string
-	logdir             string
+	executorType       string
+	logDir             string
+	fsDir              string
+	imageDir           string
+	swName             string
+	swType             string
+	swVersion          string
+	hwCPU              string
+	hwModel            string
+	hwNodes            int
+	hwMem              string
+	hwStorage          string
+	hwGPUCount         int
 	ctx                context.Context
 	cancel             context.CancelFunc
 	client             *client.ColoniesClient
@@ -58,9 +71,75 @@ type Executor struct {
 
 type ExecutorOption func(*Executor)
 
+func WithVerbose(verbose bool) ExecutorOption {
+	return func(e *Executor) {
+		e.verbose = verbose
+	}
+}
+
 func WithColoniesServerHost(host string) ExecutorOption {
 	return func(e *Executor) {
 		e.coloniesServerHost = host
+	}
+}
+
+func WithSoftwareName(swName string) ExecutorOption {
+	return func(e *Executor) {
+		e.swName = swName
+	}
+}
+
+func WithSoftwareType(swType string) ExecutorOption {
+	return func(e *Executor) {
+		e.swType = swType
+	}
+}
+
+func WithSoftwareVersion(swVersion string) ExecutorOption {
+	return func(e *Executor) {
+		e.swVersion = swVersion
+	}
+}
+
+func WithHardwareCPU(hwCPU string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwCPU = hwCPU
+	}
+}
+
+func WithHardwareModel(hwModel string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwModel = hwModel
+	}
+}
+
+func WithHardwareNodes(hwNodes int) ExecutorOption {
+	return func(e *Executor) {
+		e.hwNodes = hwNodes
+	}
+}
+
+func WithHardwareMemory(hwMem string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwMem = hwMem
+	}
+}
+
+func WithHardwareStorage(hwStorage string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwStorage = hwStorage
+	}
+}
+
+func WithHardwareGPUCount(hwGPUCount int) ExecutorOption {
+	return func(e *Executor) {
+		e.hwGPUCount = hwGPUCount
+	}
+}
+
+func WithExecutorType(executorType string) ExecutorOption {
+	return func(e *Executor) {
+		e.executorType = executorType
 	}
 }
 
@@ -100,13 +179,25 @@ func WithExecutorPrvKey(key string) ExecutorOption {
 	}
 }
 
-func WithLogdir(logdir string) ExecutorOption {
+func WithLogDir(logDir string) ExecutorOption {
 	return func(e *Executor) {
-		e.logdir = logdir
+		e.logDir = logDir
 	}
 }
 
-func createExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
+func WithFsDir(fsDir string) ExecutorOption {
+	return func(e *Executor) {
+		e.fsDir = fsDir
+	}
+}
+
+func WithImageDir(imageDir string) ExecutorOption {
+	return func(e *Executor) {
+		e.imageDir = imageDir
+	}
+}
+
+func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
 	if err != nil {
@@ -118,27 +209,23 @@ func createExecutorWithKey(colonyID string) (*core.Executor, string, string, err
 		return nil, "", "", err
 	}
 
-	executorType := os.Getenv("EXECUTOR_TYPE")
-	if executorType == "" {
-		log.Debug("Executor type not specifed, defaulting to hpc")
-		executorType = "hpc"
-	}
-
-	executor := core.CreateExecutor(executorID, executorType, executorType+"-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
-	executor.Capabilities.Software.Name = os.Getenv("EXECUTOR_SW_NAME")
-	executor.Capabilities.Software.Type = os.Getenv("EXECUTOR_SW_TYPE")
-	executor.Capabilities.Software.Version = os.Getenv("EXECUTOR_SW_VERSION")
-	executor.Capabilities.Hardware.CPU = os.Getenv("EXECUTOR_HW_CPU")
-	executor.Capabilities.Hardware.Model = os.Getenv("EXECUTOR_HW_MODEL")
-	executor.Capabilities.Hardware.Memory = os.Getenv("EXECUTOR_HW_MEM")
-	executor.Capabilities.Hardware.Storage = os.Getenv("EXECUTOR_HW_STORAGE")
-	gpuCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
-	gpuCount, err := strconv.Atoi(gpuCountStr)
+	executor := core.CreateExecutor(executorID, e.executorType, e.executorType+"-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
+	executor.Capabilities.Software.Name = e.swName
+	executor.Capabilities.Software.Type = e.swType
+	executor.Capabilities.Software.Version = e.swVersion
+	executor.Capabilities.Hardware.CPU = e.hwCPU
+	executor.Capabilities.Hardware.Model = e.hwModel
+	executor.Capabilities.Hardware.Nodes = e.hwNodes
+	executor.Capabilities.Hardware.Memory = e.hwMem
+	executor.Capabilities.Hardware.GPU.Count = e.hwGPUCount
+	gpuNodesCountStr := os.Getenv("EXECUTOR_HW_GPU_NODES_COUNT")
+	gpuNodesCount, err := strconv.Atoi(gpuNodesCountStr)
 	if err != nil {
-		log.Error("Failed to set gpu count")
+		log.Error("Failed to set gpu nodes count")
 	}
-	executor.Capabilities.Hardware.GPU.Count = gpuCount
+	executor.Capabilities.Hardware.GPU.NodeCount = gpuNodesCount
 	executor.Capabilities.Hardware.GPU.Name = os.Getenv("EXECUTOR_HW_GPU_NAME")
+	executor.Capabilities.Hardware.GPU.Memory = os.Getenv("EXECUTOR_HW_GPU_MEM")
 	executor.Location.Description = os.Getenv("EXECUTOR_LOCATION_DESC")
 	longStr := os.Getenv("EXECUTOR_LOCATION_LONG")
 	long, err := strconv.ParseFloat(longStr, 64)
@@ -162,6 +249,10 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		opt(e)
 	}
 
+	if e.verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	e.ctx = ctx
 	e.cancel = cancel
@@ -177,7 +268,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	e.client = client.CreateColoniesClient(e.coloniesServerHost, e.coloniesServerPort, e.coloniesInsecure, false)
 
 	if e.colonyPrvKey != "" {
-		spec, executorID, executorPrvKey, err := createExecutorWithKey(e.colonyID)
+		spec, executorID, executorPrvKey, err := e.createColoniesExecutorWithKey(e.colonyID)
 		if err != nil {
 			return nil, err
 		}
@@ -197,6 +288,29 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	}
 	function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
+
+	log.WithFields(log.Fields{
+		"Verbose":            e.verbose,
+		"ColoniesServerHost": e.coloniesServerHost,
+		"ColoniesServerPort": e.coloniesServerPort,
+		"ColoniesInsecure":   e.coloniesInsecure,
+		"LogDir":             e.logDir,
+		"fsDir":              e.fsDir,
+		"imageDir":           e.imageDir,
+		"ColonyId":           e.colonyID,
+		"ColonyPrvKey":       "***********************",
+		"ExecutorId":         e.executorID,
+		"ExecutorPrvKey":     "***********************",
+		"HardwareModel":      e.hwModel,
+		"HardwareNodes":      e.hwNodes,
+		"HardwareCPU":        e.hwCPU,
+		"HardwareMemory":     e.hwMem,
+		"HardwareStorage":    e.hwStorage,
+		"HardwareGPUCount":   e.hwGPUCount,
+		"SoftwareName":       e.swName,
+		"SoftwareVersion":    e.swVersion,
+		"SoftwareType":       e.swType}).
+		Info("Starting a Colonies Unix executor")
 
 	return e, nil
 }
@@ -359,8 +473,8 @@ func (e *Executor) execute(process *core.Process) error {
 		if err != nil {
 			break
 		}
-		if e.logdir != "" {
-			f, err := os.OpenFile(e.logdir+"/"+process.ID+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if e.logDir != "" {
+			f, err := os.OpenFile(e.logDir+"/"+process.ID+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Info("Failed to open logfile")
 				err = e.client.Fail(process.ID, []string{"Failed to open logfile"}, e.executorPrvKey)
@@ -416,46 +530,48 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
-			if err != nil {
-				log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to download snapshot")
-				e.failProcess(process, err.Error())
-				continue
-			}
+			fmt.Println(process.FunctionSpec.Conditions)
+			e.failProcess(process, "")
+			// err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
+			// if err != nil {
+			// 	log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to download snapshot")
+			// 	e.failProcess(process, err.Error())
+			// 	continue
+			// }
 
-			err = e.execute(process)
-			if err == nil {
-				keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
-				keepSnapshots, ok := keepSnapshotsIf.(bool)
-				if !ok {
-					log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Failed to parse keep snapshot flag")
-				}
-				if !keepSnapshots {
-					for _, syncDir := range process.FunctionSpec.Filesystem {
-						if syncDir.SnapshotID != "" {
-							err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
-							if err != nil {
-								log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
-							} else {
-								log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
-							}
-						}
-					}
-				}
+			// err = e.execute(process)
+			// if err == nil {
+			// 	keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
+			// 	keepSnapshots, ok := keepSnapshotsIf.(bool)
+			// 	if !ok {
+			// 		log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Failed to parse keep snapshot flag")
+			// 	}
+			// 	if !keepSnapshots {
+			// 		for _, syncDir := range process.FunctionSpec.Filesystem {
+			// 			if syncDir.SnapshotID != "" {
+			// 				err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+			// 				if err != nil {
+			// 					log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+			// 				} else {
+			// 					log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
+			// 				}
+			// 			}
+			// 		}
+			// 	}
 
-				err = e.sync(process.FunctionSpec.Filesystem)
-				if err != nil {
-					log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to sync")
-					e.failProcess(process, err.Error())
-					continue
-				}
+			// 	err = e.sync(process.FunctionSpec.Filesystem)
+			// 	if err != nil {
+			// 		log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to sync")
+			// 		e.failProcess(process, err.Error())
+			// 		continue
+			// 	}
 
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
-				err = e.client.Close(process.ID, e.executorPrvKey)
-				if err != nil {
-					log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as successful")
-				}
-			}
+			// 	log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Done executing, closing process as successful")
+			// 	err = e.client.Close(process.ID, e.executorPrvKey)
+			// 	if err != nil {
+			// 		log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as successful")
+			// 	}
+			// }
 		} else {
 			log.WithFields(log.Fields{"FuncName": process.FunctionSpec.FuncName}).Error("Unsupported funcname")
 			err := e.client.Fail(process.ID, []string{"Unsupported funcname"}, e.executorPrvKey)

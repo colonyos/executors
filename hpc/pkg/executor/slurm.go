@@ -36,12 +36,12 @@ const (
 )
 
 type Slurm struct {
-	workdir          string
-	containerWorkdir string
-	logDir           string
-	partition        string
-	account          string
-	module           string
+	fsDir          string
+	containerFsDir string
+	logDir         string
+	partition      string
+	account        string
+	module         string
 }
 
 type Log struct {
@@ -70,17 +70,17 @@ type JobParams struct {
 	Bind      string
 }
 
-func CreateSlurm(workDir string, containerWorkDir string, logDir string, partition string, account string, module string) *Slurm {
+func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition string, account string, module string) *Slurm {
 	slurm := &Slurm{
-		workdir:          workDir,
-		containerWorkdir: containerWorkDir,
-		logDir:           logDir,
-		partition:        partition,
-		account:          account,
-		module:           module,
+		fsDir:          fsDir,
+		containerFsDir: containerFsDir,
+		logDir:         logDir,
+		partition:      partition,
+		account:        account,
+		module:         module,
 	}
 
-	os.MkdirAll(workDir, 0755)
+	os.MkdirAll(fsDir, 0755)
 	os.MkdirAll(logDir, 0755)
 
 	return slurm
@@ -99,7 +99,7 @@ func (slurm *Slurm) GenerateSlurmScript(nodes int, mem string, gpus int, command
 		Command:   command,
 		Image:     image,
 		ProcessID: processID,
-		Bind:      slurm.workdir + ":" + slurm.containerWorkdir,
+		Bind:      slurm.fsDir + ":" + slurm.containerFsDir,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))

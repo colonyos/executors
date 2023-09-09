@@ -24,22 +24,33 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		parseEnv()
 
-		if Verbose {
-			log.SetLevel(log.DebugLevel)
+		fsDir := os.Getenv("EXECUTOR_FS_DIR")
+		logDir := os.Getenv("EXECUTOR_LOG_DIR")
+		imageDir := os.Getenv("EXECUTOR_IMAGE_DIR")
+
+		executorType := os.Getenv("EXECUTOR_TYPE")
+		if executorType == "" {
+			CheckError(errors.New("Executor type not specifed, defaulting to hpc"))
 		}
 
-		log.WithFields(log.Fields{
-			"Verbose":            Verbose,
-			"ColoniesServerHost": ColoniesServerHost,
-			"ColoniesServerPort": ColoniesServerPort,
-			"ColoniesInsecure":   ColoniesInsecure,
-			"ColonyId":           ColonyID,
-			"ColonyPrvKey":       "***********************",
-			"ExecutorId":         ExecutorID,
-			"ExecutorPrvKey":     "***********************"}).
-			Info("Starting a Colonies Unix executor")
+		swName := os.Getenv("EXECUTOR_SW_NAME")
+		swType := os.Getenv("EXECUTOR_SW_TYPE")
+		swVersion := os.Getenv("EXECUTOR_SW_VERSION")
+		hwCPU := os.Getenv("EXECUTOR_HW_CPU")
+		hwModel := os.Getenv("EXECUTOR_HW_MODEL")
+
+		hwNodesStr := os.Getenv("EXECUTOR_HW_NODES")
+		hwNodes, err := strconv.Atoi(hwNodesStr)
+		CheckError(err)
+
+		hwMem := os.Getenv("EXECUTOR_HW_MEM")
+		hwStorage := os.Getenv("EXECUTOR_HW_STORAGE")
+		hwGPUCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
+		hwGPUCount, err := strconv.Atoi(hwGPUCountStr)
+		CheckError(err)
 
 		executor, err := executor.CreateExecutor(
+			executor.WithVerbose(Verbose),
 			executor.WithColoniesServerHost(ColoniesServerHost),
 			executor.WithColoniesServerPort(ColoniesServerPort),
 			executor.WithColoniesInsecure(ColoniesInsecure),
@@ -47,7 +58,19 @@ var startCmd = &cobra.Command{
 			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorID(ExecutorID),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
-			executor.WithLogdir(LogDir),
+			executor.WithLogDir(logDir),
+			executor.WithFsDir(fsDir),
+			executor.WithImageDir(imageDir),
+			executor.WithSoftwareName(swName),
+			executor.WithSoftwareType(swType),
+			executor.WithSoftwareVersion(swVersion),
+			executor.WithHardwareCPU(hwCPU),
+			executor.WithHardwareModel(hwModel),
+			executor.WithHardwareNodes(hwNodes),
+			executor.WithHardwareMemory(hwMem),
+			executor.WithHardwareStorage(hwStorage),
+			executor.WithHardwareGPUCount(hwGPUCount),
+			executor.WithExecutorType(executorType),
 		)
 		CheckError(err)
 
