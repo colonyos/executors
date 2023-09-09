@@ -70,6 +70,9 @@ type Executor struct {
 	long               float64
 	lat                float64
 	locDesc            string
+	slurmAccount       string
+	slurmPartition     string
+	slurmModule        string
 	ctx                context.Context
 	cancel             context.CancelFunc
 	client             *client.ColoniesClient
@@ -239,6 +242,24 @@ func WithImageDir(imageDir string) ExecutorOption {
 	}
 }
 
+func WithSlurmAccount(slurmAccount string) ExecutorOption {
+	return func(e *Executor) {
+		e.slurmAccount = slurmAccount
+	}
+}
+
+func WithSlurmPartition(slurmPartition string) ExecutorOption {
+	return func(e *Executor) {
+		e.slurmPartition = slurmPartition
+	}
+}
+
+func WithSlurmModule(slurmModule string) ExecutorOption {
+	return func(e *Executor) {
+		e.slurmModule = slurmModule
+	}
+}
+
 func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
@@ -331,6 +352,9 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"Longitude":             e.long,
 		"Latitude":              e.lat,
 		"LocationDesc":          e.locDesc,
+		"SlurmAccount":          e.slurmAccount,
+		"SlurmPartition":        e.slurmPartition,
+		"SlurmModule":           e.slurmModule,
 		"HardwareModel":         e.hwModel,
 		"HardwareNodes":         e.hwNodes,
 		"HardwareCPU":           e.hwCPU,
@@ -379,7 +403,6 @@ func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 	}
 
 	for _, syncDir := range filesystem {
-		fmt.Println(syncDir)
 		if syncDir.SnapshotID != "" {
 			snapshot, err := e.client.GetSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
 			if err != nil {
@@ -388,12 +411,12 @@ func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 			}
 			log.WithFields(log.Fields{"Label": syncDir.Label, "SnapshotId": snapshot.ID, "Dir": syncDir.Dir}).Info("Downloading snapshot")
 
-			err = os.MkdirAll(syncDir.Dir, 0755)
+			err = os.MkdirAll(e.fsDir+"/"+syncDir.Dir, 0755)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 			}
 
-			err = fsClient.DownloadSnapshot(snapshot.ID, syncDir.Dir)
+			err = fsClient.DownloadSnapshot(snapshot.ID, e.fsDir+"/"+syncDir.Dir)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
 				return err
@@ -564,13 +587,31 @@ func (e *Executor) ServeForEver() error {
 
 		if process.FunctionSpec.FuncName == "execute" {
 			fmt.Println(process.FunctionSpec.Conditions)
-			e.failProcess(process, "")
-			// err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
-			// if err != nil {
-			// 	log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to download snapshot")
-			// 	e.failProcess(process, err.Error())
-			// 	continue
-			// }
+			err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
+			if err != nil {
+				fmt.Println("err", err)
+				log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to download snapshot")
+				e.failProcess(process, err.Error())
+				continue
+			}
+			e.client.Close(process.ID, e.executorPrvKey)
+			singularity := CreateSingularity(e.imageDir)
+			fmt.Println(singularity)
+
+			imageIf := process.FunctionSpec.KwArgs["docker-image"]
+			image, ok := imageIf.(string)
+			if !ok {
+				log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Failed to parse docker image flag")
+				continue
+			}
+			if !singularity.SifExists(image) {
+				singularity.Build(image)
+			} else {
+				log.WithFields(log.Fields{"Image": image}).Info("Image already exists")
+			}
+
+			//slurm := CreateSlurm(e.fsDir, e.imageDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule)
+			//slurm.Submit()
 
 			// err = e.execute(process)
 			// if err == nil {

@@ -63,6 +63,9 @@ var startCmd = &cobra.Command{
 		if err != nil {
 			log.Error("Failed to set location long")
 		}
+		slurmAccount := os.Getenv("SLURM_ACCOUNT")
+		slurmPartition := os.Getenv("SLURM_PARTITION")
+		slurmModule := os.Getenv("SLURM_MODULE")
 
 		executor, err := executor.CreateExecutor(
 			executor.WithVerbose(Verbose),
@@ -88,6 +91,9 @@ var startCmd = &cobra.Command{
 			executor.WithHardwareGPUNodesCount(hwGPUNodeCount),
 			executor.WithHardwareGPUName(hwGPUName),
 			executor.WithHardwareGPUMemory(hwGPUMem),
+			executor.WithSlurmAccount(slurmAccount),
+			executor.WithSlurmPartition(slurmPartition),
+			executor.WithSlurmModule(slurmModule),
 			executor.WithLong(long),
 			executor.WithLat(lat),
 			executor.WithLocDesc(locDesc),
