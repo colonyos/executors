@@ -10,8 +10,6 @@ import (
 )
 
 func TestSlurmGenerateBatchScript(t *testing.T) {
-	slurm := &Slurm{}
-	dir := "./slurm"
 	partition := "boost_usr_prod"
 	account := "euhpc_d02_030"
 	module := "singularity/3.8.7"
@@ -21,44 +19,43 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 	command := "nvidia-smi"
 	image := "/ml.sif"
 	processID := core.GenerateRandomID()
-	script, err := slurm.GenerateSlurmScript(dir,
-		partition,
-		account,
-		module,
-		nodes,
-		mem,
-		gpus,
-		command,
-		image,
-		processID)
+	logDir := "/scratch/slurm/logs"
+	workDir := "/scratch/slurm/workdir"
+	containerWorkDir := "/workdir"
+
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
+
+	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, image, processID)
 	assert.Nil(t, err)
 	fmt.Println(script)
 }
 
 func TestSlurmSubmit(t *testing.T) {
-	slurm := &Slurm{}
-
-	dir := "./slurm"
 	partition := ""
 	account := ""
 	module := ""
 	nodes := 1
 	mem := ""
 	gpus := 0
-	//command := "hostname"
 	command := "python3 --version"
-	image := "/home/johan/ml.sif"
 	processID := core.GenerateRandomID()
-	script, err := slurm.GenerateSlurmScript(dir,
-		partition,
-		account,
-		module,
-		nodes,
-		mem,
-		gpus,
-		command,
-		image,
-		processID)
+	logDir := "/scratch/slurm/logs"
+	workDir := "/scratch/slurm/workdir"
+	containerWorkDir := "/workdir"
+
+	image := "python:3.12-rc-bookworm"
+	singularity := CreateSingularity("/scratch/slurm/images")
+	if !singularity.SifExists(image) {
+		logs, err := singularity.Build(image)
+		assert.Nil(t, err)
+		fmt.Println(logs)
+	} else {
+		fmt.Println(singularity.Sif(image) + " already exists")
+	}
+
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
+
+	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, singularity.Sif(image), processID)
 	assert.Nil(t, err)
 	fmt.Println(script)
 
@@ -66,14 +63,14 @@ func TestSlurmSubmit(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, jobID > 0)
 
-	logFilePath := slurm.GetLogFilePath(dir, processID, jobID)
+	logFilePath := slurm.GetLogFilePath(logDir, processID, jobID)
 	fmt.Println(logFilePath)
 
 	logChan := make(chan *Log)
 	jobEndedChan := make(chan *JobEnded, 1)
 	errChan := make(chan error)
 
-	err = slurm.MonitorExecutionProgress(logFilePath, logChan, jobEndedChan, errChan)
+	err = slurm.MonitorExecutionProgress(logFilePath, logChan, jobEndedChan, errChan, true)
 	assert.Nil(t, err)
 
 	log := <-logChan
@@ -86,9 +83,6 @@ func TestSlurmSubmit(t *testing.T) {
 }
 
 func TestSlurmMonitor(t *testing.T) {
-	slurm := &Slurm{}
-
-	dir := "./slurm"
 	partition := ""
 	account := ""
 	module := ""
@@ -96,32 +90,32 @@ func TestSlurmMonitor(t *testing.T) {
 	mem := ""
 	gpus := 0
 	command := "hostname"
-	//image := "/home/johan/ml.sif"
-	image := ""
+	processID := core.GenerateRandomID()
+	logDir := "/scratch/slurm/logs"
+	workDir := "/scratch/slurm/workdir"
+	containerWorkDir := "/workdir"
 
-	for i := 0; i < 100; i++ {
-		processID := core.GenerateRandomID()
-		script, err := slurm.GenerateSlurmScript(dir,
-			partition,
-			account,
-			module,
-			nodes,
-			mem,
-			gpus,
-			command,
-			image,
-			processID)
+	image := "python:3.12-rc-bookworm"
+	singularity := CreateSingularity("/scratch/slurm/images")
+	if !singularity.SifExists(image) {
+		logs, err := singularity.Build(image)
 		assert.Nil(t, err)
-		fmt.Println(script)
-		jobID, err := slurm.Submit(script)
-		fmt.Println("Submitting Slurm job with ID", jobID)
-		assert.Nil(t, err)
+		fmt.Println(logs)
+	} else {
+		fmt.Println(singularity.Sif(image) + " already exists")
 	}
 
-	// logChan := make(chan *Log, 1000)
-	// jobEndedChan := make(chan *JobEnded, 1000)
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
 
-	// slurm.Monitor(dir, logChan, jobEndedChan)
+	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, singularity.Sif(image), processID)
+	assert.Nil(t, err)
+	_, err = slurm.Submit(script)
+	assert.Nil(t, err)
+
+	logChan := make(chan *Log, 1000)
+	jobEndedChan := make(chan *JobEnded, 1000)
+
+	slurm.Monitor(logDir, logChan, jobEndedChan)
 
 	// for {
 	// 	select {
@@ -131,4 +125,7 @@ func TestSlurmMonitor(t *testing.T) {
 	// 		fmt.Println("Process with ID <" + jobEnded.ProcessID + "> running Slurm job with ID <" + strconv.Itoa(jobEnded.JobID) + "> ended with status " + strconv.Itoa(jobEnded.JobStatus))
 	// 	}
 	// }
+	log := <-logChan
+	assert.True(t, len(log.Log) > 2)
+	<-jobEndedChan
 }

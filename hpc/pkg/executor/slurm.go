@@ -36,6 +36,12 @@ const (
 )
 
 type Slurm struct {
+	workdir          string
+	containerWorkdir string
+	logDir           string
+	partition        string
+	account          string
+	module           string
 }
 
 type Log struct {
@@ -50,7 +56,7 @@ type JobEnded struct {
 }
 
 type JobParams struct {
-	Dir       string
+	LogDir    string
 	Partition string
 	Account   string
 	Module    string
@@ -61,59 +67,42 @@ type JobParams struct {
 	Command   string
 	Image     string
 	ProcessID string
+	Bind      string
 }
 
-func (slurm *Slurm) GenerateSlurmScript(dir string, partition string, account string, module string, nodes int, mem string, gpus int, command string, image string, processID string) (string, error) {
-	os.MkdirAll(dir, 0755)
+func CreateSlurm(workDir string, containerWorkDir string, logDir string, partition string, account string, module string) *Slurm {
+	slurm := &Slurm{
+		workdir:          workDir,
+		containerWorkdir: containerWorkDir,
+		logDir:           logDir,
+		partition:        partition,
+		account:          account,
+		module:           module,
+	}
 
-	tmpl := `#!/bin/bash
+	os.MkdirAll(workDir, 0755)
+	os.MkdirAll(logDir, 0755)
 
-#SBATCH --job-name={{.JobName}}
-{{- if .Partition}}
-#SBATCH --partition={{.Partition}}
-{{- end}}
-{{- if .Account}}
-#SBATCH --account={{.Account}}
-{{- end}}
-#SBATCH --nodes={{.Nodes}}
-{{- if .Memory}}
-#SBATCH --mem={{.Memory}}
-{{- end}}
-{{- if gt .GPUs 0}}
-#SBATCH --gres=gpu:{{.GPUs}}
-{{- end}}
-#SBATCH --output={{.Dir}}/{{.ProcessID}}_%j.log
-#SBATCH --error={{.Dir}}/{{.ProcessID}}_%j.log
+	return slurm
+}
 
-{{- if .Partition}}
-module load singularity/3.8.7
-{{- end}}
-
-{{- if .Image}}
-{{- if gt .GPUs 0}}
-srun singularity exec --nv {{.Image}} {{.Command}}
-{{- else}}
-srun singularity exec {{.Image}} {{.Command}}
-{{- end}}
-{{- else}}
-srun {{.Command}}
-{{- end}}
-`
+func (slurm *Slurm) GenerateSlurmScript(nodes int, mem string, gpus int, command string, image string, processID string) (string, error) {
 	params := JobParams{
-		Dir:       dir,
-		Partition: partition,
-		Account:   account,
-		Module:    module,
+		LogDir:    slurm.logDir,
+		Partition: slurm.partition,
+		Account:   slurm.account,
+		Module:    slurm.module,
 		Nodes:     nodes,
 		Memory:    mem,
-		JobName:   "my_simple_job",
+		JobName:   processID,
 		GPUs:      gpus,
 		Command:   command,
 		Image:     image,
 		ProcessID: processID,
+		Bind:      slurm.workdir + ":" + slurm.containerWorkdir,
 	}
 
-	t := template.Must(template.New("sbatchTemplate").Parse(tmpl))
+	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))
 	var scriptContent bytes.Buffer
 	if err := t.Execute(&scriptContent, params); err != nil {
 		log.WithFields(log.Fields{"Error": err}).Error("Error executing template")
@@ -271,7 +260,7 @@ func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobEndedChan chan *Jo
 							fmt.Println("Monitoring " + logPath)
 							errChan := make(chan error)
 							addProcessChan <- &processRecord{processID: processID, errChan: errChan}
-							err = slurm.MonitorExecutionProgress(logPath, logChan, jobEndedChan, errChan)
+							err = slurm.MonitorExecutionProgress(logPath, logChan, jobEndedChan, errChan, false)
 							if err != nil {
 								log.WithFields(log.Fields{"Error": err}).Error("Failed to monitor slurm job")
 							}
@@ -294,7 +283,6 @@ func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobEndedChan chan *Jo
 					fmt.Println("Error getting file info:", err)
 					continue
 				}
-
 			}
 		}
 	}()
@@ -323,7 +311,7 @@ func (slurm *Slurm) parseLogPath(logPath string) (string, int, error) {
 	return processID, jobID, nil
 }
 
-func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, jobEndedChan chan *JobEnded, errChan chan error) error {
+func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, jobEndedChan chan *JobEnded, errChan chan error, deleteLogFile bool) error {
 	processID, jobID, err := slurm.parseLogPath(logPath)
 	if err != nil {
 		return errors.New("Failed to parse jobID in logPath")
@@ -367,12 +355,13 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 					}
 					if jobStatus > RUNNING {
 						jobEndedChan <- &JobEnded{ProcessID: processID, JobID: jobID, JobStatus: jobStatus}
-						// TODO: make it configurabel to remove logpath
-						// err := os.Remove(logPath)
-						// if err != nil {
-						// 	errChan <- err
-						// 	return
-						// }
+						if deleteLogFile {
+							err := os.Remove(logPath)
+							if err != nil {
+								errChan <- err
+								return
+							}
+						}
 						errChan <- nil
 						return // We are done
 					}
