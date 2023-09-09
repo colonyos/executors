@@ -64,6 +64,12 @@ type Executor struct {
 	hwMem              string
 	hwStorage          string
 	hwGPUCount         int
+	hwGPUNodesCount    int
+	hwGPUName          string
+	hwGPUMem           string
+	long               float64
+	lat                float64
+	locDesc            string
 	ctx                context.Context
 	cancel             context.CancelFunc
 	client             *client.ColoniesClient
@@ -134,6 +140,42 @@ func WithHardwareStorage(hwStorage string) ExecutorOption {
 func WithHardwareGPUCount(hwGPUCount int) ExecutorOption {
 	return func(e *Executor) {
 		e.hwGPUCount = hwGPUCount
+	}
+}
+
+func WithHardwareGPUNodesCount(hwGPUNodesCount int) ExecutorOption {
+	return func(e *Executor) {
+		e.hwGPUNodesCount = hwGPUNodesCount
+	}
+}
+
+func WithHardwareGPUName(hwGPUName string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwGPUName = hwGPUName
+	}
+}
+
+func WithHardwareGPUMemory(hwGPUMem string) ExecutorOption {
+	return func(e *Executor) {
+		e.hwGPUMem = hwGPUMem
+	}
+}
+
+func WithLong(long float64) ExecutorOption {
+	return func(e *Executor) {
+		e.long = long
+	}
+}
+
+func WithLat(lat float64) ExecutorOption {
+	return func(e *Executor) {
+		e.lat = lat
+	}
+}
+
+func WithLocDesc(locDesc string) ExecutorOption {
+	return func(e *Executor) {
+		e.locDesc = locDesc
 	}
 }
 
@@ -218,27 +260,12 @@ func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executo
 	executor.Capabilities.Hardware.Nodes = e.hwNodes
 	executor.Capabilities.Hardware.Memory = e.hwMem
 	executor.Capabilities.Hardware.GPU.Count = e.hwGPUCount
-	gpuNodesCountStr := os.Getenv("EXECUTOR_HW_GPU_NODES_COUNT")
-	gpuNodesCount, err := strconv.Atoi(gpuNodesCountStr)
-	if err != nil {
-		log.Error("Failed to set gpu nodes count")
-	}
-	executor.Capabilities.Hardware.GPU.NodeCount = gpuNodesCount
-	executor.Capabilities.Hardware.GPU.Name = os.Getenv("EXECUTOR_HW_GPU_NAME")
-	executor.Capabilities.Hardware.GPU.Memory = os.Getenv("EXECUTOR_HW_GPU_MEM")
-	executor.Location.Description = os.Getenv("EXECUTOR_LOCATION_DESC")
-	longStr := os.Getenv("EXECUTOR_LOCATION_LONG")
-	long, err := strconv.ParseFloat(longStr, 64)
-	if err != nil {
-		log.Error("Failed to set location long")
-	}
-	executor.Location.Long = long
-	latStr := os.Getenv("EXECUTOR_LOCATION_LAT")
-	lat, err := strconv.ParseFloat(latStr, 64)
-	if err != nil {
-		log.Error("Failed to set location long")
-	}
-	executor.Location.Lat = lat
+	executor.Capabilities.Hardware.GPU.NodeCount = e.hwGPUNodesCount
+	executor.Capabilities.Hardware.GPU.Name = e.hwGPUName
+	executor.Capabilities.Hardware.GPU.Memory = e.hwGPUMem
+	executor.Location.Description = e.locDesc
+	executor.Location.Long = e.long
+	executor.Location.Lat = e.lat
 
 	return executor, executorID, executorPrvKey, nil
 }
@@ -290,26 +317,32 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	e.client.AddFunction(function, e.executorPrvKey)
 
 	log.WithFields(log.Fields{
-		"Verbose":            e.verbose,
-		"ColoniesServerHost": e.coloniesServerHost,
-		"ColoniesServerPort": e.coloniesServerPort,
-		"ColoniesInsecure":   e.coloniesInsecure,
-		"LogDir":             e.logDir,
-		"fsDir":              e.fsDir,
-		"imageDir":           e.imageDir,
-		"ColonyId":           e.colonyID,
-		"ColonyPrvKey":       "***********************",
-		"ExecutorId":         e.executorID,
-		"ExecutorPrvKey":     "***********************",
-		"HardwareModel":      e.hwModel,
-		"HardwareNodes":      e.hwNodes,
-		"HardwareCPU":        e.hwCPU,
-		"HardwareMemory":     e.hwMem,
-		"HardwareStorage":    e.hwStorage,
-		"HardwareGPUCount":   e.hwGPUCount,
-		"SoftwareName":       e.swName,
-		"SoftwareVersion":    e.swVersion,
-		"SoftwareType":       e.swType}).
+		"Verbose":               e.verbose,
+		"ColoniesServerHost":    e.coloniesServerHost,
+		"ColoniesServerPort":    e.coloniesServerPort,
+		"ColoniesInsecure":      e.coloniesInsecure,
+		"LogDir":                e.logDir,
+		"fsDir":                 e.fsDir,
+		"imageDir":              e.imageDir,
+		"ColonyId":              e.colonyID,
+		"ColonyPrvKey":          "***********************",
+		"ExecutorId":            e.executorID,
+		"ExecutorPrvKey":        "***********************",
+		"Longitude":             e.long,
+		"Latitude":              e.lat,
+		"LocationDesc":          e.locDesc,
+		"HardwareModel":         e.hwModel,
+		"HardwareNodes":         e.hwNodes,
+		"HardwareCPU":           e.hwCPU,
+		"HardwareMemory":        e.hwMem,
+		"HardwareStorage":       e.hwStorage,
+		"HardwareGPUName":       e.hwGPUName,
+		"HardwareGPUCount":      e.hwGPUCount,
+		"HardwareGPUNodesCount": e.hwGPUNodesCount,
+		"HardwareGPUMemory":     e.hwGPUMem,
+		"SoftwareName":          e.swName,
+		"SoftwareVersion":       e.swVersion,
+		"SoftwareType":          e.swType}).
 		Info("Starting a Colonies Unix executor")
 
 	return e, nil

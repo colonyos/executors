@@ -38,16 +38,31 @@ var startCmd = &cobra.Command{
 		swVersion := os.Getenv("EXECUTOR_SW_VERSION")
 		hwCPU := os.Getenv("EXECUTOR_HW_CPU")
 		hwModel := os.Getenv("EXECUTOR_HW_MODEL")
-
 		hwNodesStr := os.Getenv("EXECUTOR_HW_NODES")
 		hwNodes, err := strconv.Atoi(hwNodesStr)
 		CheckError(err)
-
 		hwMem := os.Getenv("EXECUTOR_HW_MEM")
 		hwStorage := os.Getenv("EXECUTOR_HW_STORAGE")
 		hwGPUCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
 		hwGPUCount, err := strconv.Atoi(hwGPUCountStr)
 		CheckError(err)
+		hwGPUNodeCountStr := os.Getenv("EXECUTOR_HW_GPU_NODES_COUNT")
+		hwGPUNodeCount, err := strconv.Atoi(hwGPUNodeCountStr)
+		CheckError(err)
+		hwGPUName := os.Getenv("EXECUTOR_HW_GPU_NAME")
+		hwGPUMem := os.Getenv("EXECUTOR_HW_GPU_MEM")
+		locDesc := os.Getenv("EXECUTOR_LOCATION_DESC")
+
+		longStr := os.Getenv("EXECUTOR_LOCATION_LONG")
+		long, err := strconv.ParseFloat(longStr, 64)
+		if err != nil {
+			log.Error("Failed to set location long")
+		}
+		latStr := os.Getenv("EXECUTOR_LOCATION_LAT")
+		lat, err := strconv.ParseFloat(latStr, 64)
+		if err != nil {
+			log.Error("Failed to set location long")
+		}
 
 		executor, err := executor.CreateExecutor(
 			executor.WithVerbose(Verbose),
@@ -70,6 +85,12 @@ var startCmd = &cobra.Command{
 			executor.WithHardwareMemory(hwMem),
 			executor.WithHardwareStorage(hwStorage),
 			executor.WithHardwareGPUCount(hwGPUCount),
+			executor.WithHardwareGPUNodesCount(hwGPUNodeCount),
+			executor.WithHardwareGPUName(hwGPUName),
+			executor.WithHardwareGPUMemory(hwGPUMem),
+			executor.WithLong(long),
+			executor.WithLat(lat),
+			executor.WithLocDesc(locDesc),
 			executor.WithExecutorType(executorType),
 		)
 		CheckError(err)
