@@ -366,7 +366,14 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 					if err != nil {
 						log.WithFields(log.Fields{"Error": err}).Error("Error checking job status")
 					}
-					if jobStatus > RUNNING {
+					if jobStatus != RUNNING {
+						content, err := io.ReadAll(file)
+						if err != nil {
+							log.Error(fmt.Errorf("Error reading line: %w", err))
+						}
+						if len(content) > 0 {
+							logChan <- &Log{ProcessID: processID, Log: string(content)}
+						}
 						jobEndedChan <- &JobEnded{ProcessID: processID, JobID: jobID, JobStatus: jobStatus}
 						if deleteLogFile {
 							err := os.Remove(logPath)

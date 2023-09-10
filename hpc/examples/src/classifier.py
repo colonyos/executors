@@ -10,10 +10,21 @@ from tensorflow.keras.models import Sequential
 import pathlib
 import os
 import pickle
+import tarfile
+from pathlib import Path
 
-dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
-data_dir = tf.keras.utils.get_file('flower_photos.tar', origin=dataset_url, extract=True)
-data_dir = pathlib.Path(data_dir).with_suffix('')
+
+#dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
+#dataset_url = "file:///cfs/data/flower_photos.tgz"
+#data_dir = tf.keras.utils.get_file('/cfs/data/flower_photos.tgz', origin=dataset_url, extract=True)
+#data_dir = pathlib.Path(data_dir).with_suffix('')
+
+tar_path = "/cfs/data/flower_photos.tgz"
+data_dir = Path("/tmp/flower_photos")
+data_dir.mkdir(parents=True, exist_ok=True)
+
+with tarfile.open(tar_path, "r:gz") as tar:
+    tar.extractall(path=data_dir)
 
 image_count = len(list(data_dir.glob('*/*.jpg')))
 print("number of images: ", image_count)
@@ -69,11 +80,9 @@ model = Sequential([
   layers.Dense(num_classes)
 ])
 
-
 model.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
-
 
 model.summary()
 
@@ -84,10 +93,17 @@ history = model.fit(
   epochs=epochs
 )
 
-path = "/tmp/classifier/results"
+path = "/cfs/results"
 isExist = os.path.exists(path)
 if not isExist:
    os.makedirs(path)
 
-with open('/tmp/classifier/results/history.pickle', 'wb') as file_pi:
+print("Saving results to /cfs/results")
+with open('/cfs/results/history.pickle', 'wb') as file_pi:
     pickle.dump(history.history, file_pi)
+
+contents = os.listdir(path)
+
+# Print the contents
+for item in contents:
+    print(item)

@@ -458,13 +458,17 @@ func (e *Executor) sync(filesystem []*core.SyncDir) error {
 	}
 
 	for _, syncDir := range filesystem {
-		if syncDir.SyncOnCompletion && syncDir.Label != "" && syncDir.Dir != "" {
-			err = os.MkdirAll(e.fsDir+"/"+syncDir.Dir, 0755)
+		d := e.fsDir + "/" + syncDir.Dir
+		//if syncDir.SyncOnCompletion && syncDir.Label != "" && syncDir.Dir != "" {
+		if syncDir.SyncOnCompletion && syncDir.Label != "" && d != "" {
+			//err = os.MkdirAll(e.fsDir+"/"+syncDir.Dir, 0755)
+			err = os.MkdirAll(d, 0755)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 			}
 
-			syncplan, err := fsClient.CalcSyncPlan(syncDir.Dir, syncDir.Label, true)
+			//syncplan, err := fsClient.CalcSyncPlan(syncDir.Dir, syncDir.Label, true)
+			syncplan, err := fsClient.CalcSyncPlan(d, syncDir.Label, true)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
 				return err
@@ -597,7 +601,7 @@ func (e *Executor) ServeForEver() error {
 				e.client.AddLog(log.ProcessID, log.Log, e.executorPrvKey)
 			case jobEnded := <-jobEndedChan:
 				log.WithFields(log.Fields{"ProcessId": jobEnded.ProcessID, "SlurmJobId": jobEnded.JobID, "JobStatus": jobEnded.JobStatus}).Info("Slurm job completed")
-				if jobEnded.JobStatus == COMPLETED {
+				if jobEnded.JobStatus == COMPLETED || jobEnded.JobStatus == COMPLETING {
 					err := e.client.Close(jobEnded.ProcessID, e.executorPrvKey)
 					if err != nil {
 						log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn("Failed to close process")
@@ -625,9 +629,8 @@ func (e *Executor) ServeForEver() error {
 					keepSnapshots, ok := keepSnapshotsIf.(bool)
 					if !ok {
 						errMsg := "Failed to parse keepsnapshot flag"
-						e.failProcess(process, errMsg)
-						log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-						continue
+						log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
+						keepSnapshots = false
 					}
 					if !keepSnapshots {
 						for _, syncDir := range process.FunctionSpec.Filesystem {
@@ -702,18 +705,16 @@ func (e *Executor) ServeForEver() error {
 			rebuildImage, ok := rebuildImageIf.(bool)
 			if !ok {
 				errMsg := "Failed to parse rebuild image flag"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
+				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
+				rebuildImage = false
 			}
 
 			keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
 			keepSnapshots, ok := keepSnapshotsIf.(bool)
 			if !ok {
 				errMsg := "Failed to parse keep snapshot flag"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
+				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
+				keepSnapshots = false
 			}
 
 			cmd, ok := process.FunctionSpec.KwArgs["cmd"].(string)
@@ -736,9 +737,8 @@ func (e *Executor) ServeForEver() error {
 				argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
 			} else {
 				errMsg := "Failed to parse args"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
+				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
+				argsStr = ""
 			}
 
 			execCmd := make([]string, 0)
@@ -786,7 +786,14 @@ func (e *Executor) ServeForEver() error {
 				Info("Executing")
 
 			if !singularity.SifExists(image) {
-				singularity.Build(image)
+				logs, err := singularity.Pull(image)
+				e.client.AddLog(process.ID, logs, e.executorPrvKey)
+				if err != nil {
+					errMsg := "Failed to submit Slurm batch script " + err.Error()
+					e.failProcess(process, errMsg)
+					log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
+					continue
+				}
 			} else {
 				log.WithFields(log.Fields{"Image": image}).Info("Image already exists")
 			}

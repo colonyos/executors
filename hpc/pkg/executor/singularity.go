@@ -28,6 +28,39 @@ func (singularity *Singularity) Remove(dockerImage string) error {
 	return os.Remove(singularity.Sif(dockerImage))
 }
 
+func (singularity *Singularity) Pull(dockerImage string) (string, error) {
+	logMsgs := ""
+	cmdString := "singularity pull --dir " + singularity.containerDir + " " + singularity.SifFile(dockerImage) + " docker://docker.io/" + dockerImage
+	logMsg := "Pulling container, running " + cmdString + "\n"
+	log.Info(logMsg)
+	logMsgs += logMsg
+
+	cmd := exec.Command("bash", "-c", cmdString)
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		exitError, ok := err.(*exec.ExitError)
+		if ok {
+			log.WithFields(log.Fields{"Error": exitError, "Stderr": stderr.String(), "ExitCode": exitError.ExitCode()}).Error("Singularity exited with error")
+			logMsg += "Failed to build container image, " + stderr.String()
+		} else {
+			log.WithFields(log.Fields{"Error": err}).Error("Failed to run singularity command")
+			logMsg += "Failed to build container image, " + err.Error()
+		}
+		return err.Error(), err
+	}
+
+	logMsgs += strings.TrimSpace(out.String()) + "\n"
+	logMsgs += "Successfully build Singularity container, image save to " + singularity.Sif(dockerImage)
+
+	return logMsgs, nil
+}
+
 func (singularity *Singularity) Build(dockerImage string) (string, error) {
 	logMsgs := ""
 	sif := &Sif{DockerImage: dockerImage}
@@ -96,4 +129,9 @@ func (singularity *Singularity) SifExists(dockerImage string) bool {
 func (singularity *Singularity) Sif(dockerImage string) string {
 	img := strings.ReplaceAll(dockerImage, "/", "_")
 	return singularity.containerDir + "/" + img + ".sif"
+}
+
+func (singularity *Singularity) SifFile(dockerImage string) string {
+	img := strings.ReplaceAll(dockerImage, "/", "_")
+	return img + ".sif"
 }
