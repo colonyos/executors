@@ -1,0 +1,2 @@
+FATAL:   could not open image /home/johan/dev/github/colonyos/executors/hpc/singularity/ml.sif: failed to retrieve path for /home/johan/dev/github/colonyos/executors/hpc/singularity/ml.sif: lstat /home/johan/dev/github/colonyos/executors/hpc/singularity/ml.sif: no such file or directory
+srun: error: rocinante: task 0: Exited with exit code 255

@@ -14,6 +14,8 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 	account := "euhpc_d02_030"
 	module := "singularity/3.8.7"
 	nodes := 10
+	tasksPerNode := 1
+	walltime := 70
 	mem := "10G"
 	gpus := 2
 	command := "nvidia-smi"
@@ -23,9 +25,9 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 	workDir := "/scratch/slurm/workdir"
 	containerWorkDir := "/workdir"
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, true)
 
-	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, image, processID)
+	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, image, processID)
 	assert.Nil(t, err)
 	fmt.Println(script)
 }
@@ -35,6 +37,8 @@ func TestSlurmSubmit(t *testing.T) {
 	account := ""
 	module := ""
 	nodes := 1
+	tasksPerNode := 1
+	walltime := 70
 	mem := ""
 	gpus := 0
 	command := "python3 --version"
@@ -53,9 +57,9 @@ func TestSlurmSubmit(t *testing.T) {
 		fmt.Println(singularity.Sif(image) + " already exists")
 	}
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, false)
 
-	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, singularity.Sif(image), processID)
+	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, singularity.Sif(image), processID)
 	assert.Nil(t, err)
 	fmt.Println(script)
 
@@ -87,6 +91,8 @@ func TestSlurmMonitor(t *testing.T) {
 	account := ""
 	module := ""
 	nodes := 1
+	tasksPerNode := 1
+	walltime := 70
 	mem := ""
 	gpus := 0
 	command := "hostname"
@@ -105,9 +111,9 @@ func TestSlurmMonitor(t *testing.T) {
 		fmt.Println(singularity.Sif(image) + " already exists")
 	}
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module)
+	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, false)
 
-	script, err := slurm.GenerateSlurmScript(nodes, mem, gpus, command, singularity.Sif(image), processID)
+	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, singularity.Sif(image), processID)
 	assert.Nil(t, err)
 	_, err = slurm.Submit(script)
 	assert.Nil(t, err)
@@ -116,15 +122,6 @@ func TestSlurmMonitor(t *testing.T) {
 	jobEndedChan := make(chan *JobEnded, 1000)
 
 	slurm.Monitor(logDir, logChan, jobEndedChan)
-
-	// for {
-	// 	select {
-	// 	case log := <-logChan:
-	// 		fmt.Println(log.ProcessID + ": " + log.Log)
-	// 	case jobEnded := <-jobEndedChan:
-	// 		fmt.Println("Process with ID <" + jobEnded.ProcessID + "> running Slurm job with ID <" + strconv.Itoa(jobEnded.JobID) + "> ended with status " + strconv.Itoa(jobEnded.JobStatus))
-	// 	}
-	// }
 	log := <-logChan
 	assert.True(t, len(log.Log) > 2)
 	<-jobEndedChan

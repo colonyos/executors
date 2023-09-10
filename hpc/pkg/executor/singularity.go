@@ -94,5 +94,6 @@ func (singularity *Singularity) SifExists(dockerImage string) bool {
 }
 
 func (singularity *Singularity) Sif(dockerImage string) string {
-	return singularity.containerDir + "/" + dockerImage + ".sif"
+	img := strings.ReplaceAll(dockerImage, "/", "_")
+	return singularity.containerDir + "/" + img + ".sif"
 }

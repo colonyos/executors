@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -42,6 +41,7 @@ type Slurm struct {
 	partition      string
 	account        string
 	module         string
+	gres           bool
 }
 
 type Log struct {
@@ -56,21 +56,24 @@ type JobEnded struct {
 }
 
 type JobParams struct {
-	LogDir    string
-	Partition string
-	Account   string
-	Module    string
-	Nodes     int
-	Memory    string
-	JobName   string
-	GPUs      int
-	Command   string
-	Image     string
-	ProcessID string
-	Bind      string
+	LogDir       string
+	Partition    string
+	Account      string
+	Module       string
+	Nodes        int
+	TasksPerNode int
+	Time         string
+	Memory       string
+	JobName      string
+	GPUs         int
+	Command      string
+	Image        string
+	ProcessID    string
+	Bind         string
+	GRES         bool
 }
 
-func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition string, account string, module string) *Slurm {
+func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
 	slurm := &Slurm{
 		fsDir:          fsDir,
 		containerFsDir: containerFsDir,
@@ -78,6 +81,7 @@ func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition s
 		partition:      partition,
 		account:        account,
 		module:         module,
+		gres:           gres,
 	}
 
 	os.MkdirAll(fsDir, 0755)
@@ -86,20 +90,30 @@ func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition s
 	return slurm
 }
 
-func (slurm *Slurm) GenerateSlurmScript(nodes int, mem string, gpus int, command string, image string, processID string) (string, error) {
+func formatSecondsToTime(seconds int) string {
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
+}
+
+func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string) (string, error) {
 	params := JobParams{
-		LogDir:    slurm.logDir,
-		Partition: slurm.partition,
-		Account:   slurm.account,
-		Module:    slurm.module,
-		Nodes:     nodes,
-		Memory:    mem,
-		JobName:   processID,
-		GPUs:      gpus,
-		Command:   command,
-		Image:     image,
-		ProcessID: processID,
-		Bind:      slurm.fsDir + ":" + slurm.containerFsDir,
+		LogDir:       slurm.logDir,
+		Partition:    slurm.partition,
+		Account:      slurm.account,
+		Module:       slurm.module,
+		Nodes:        nodes,
+		TasksPerNode: tasksPerNode,
+		Time:         formatSecondsToTime(walltime),
+		Memory:       mem,
+		JobName:      processID,
+		GPUs:         gpus,
+		Command:      command,
+		Image:        image,
+		ProcessID:    processID,
+		GRES:         slurm.gres,
+		Bind:         slurm.fsDir + ":" + slurm.containerFsDir,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))
@@ -327,11 +341,9 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 			}
 			defer file.Close()
 
-			initialSize := int64(0)
-
-			reader := bufio.NewReader(file)
+			pos := int64(0)
 			for {
-				_, err := file.Seek(initialSize, io.SeekStart)
+				_, err := file.Seek(pos, io.SeekStart)
 				if err != nil {
 					err := fmt.Errorf("Error seeking to last known size: %w", err)
 					log.Error(err)
@@ -339,16 +351,17 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 					return
 				}
 
-				line, err := reader.ReadString('\n')
+				content, err := io.ReadAll(file)
 				if err != nil && err != io.EOF && err != os.ErrClosed {
-					log.Debug(fmt.Errorf("Error reading line: %w", err))
+					log.Error(fmt.Errorf("Error reading line: %w", err))
 					continue
 				}
 
-				if len(line) > 0 {
-					logChan <- &Log{ProcessID: processID, Log: line}
-				}
-				if err != nil && err == io.EOF {
+				if len(content) > 0 {
+					logChan <- &Log{ProcessID: processID, Log: string(content)}
+					pos += int64(len(content))
+				} else {
+					time.Sleep(1 * time.Second)
 					jobStatus, err := slurm.GetJobStatus(jobID)
 					if err != nil {
 						log.WithFields(log.Fields{"Error": err}).Error("Error checking job status")
@@ -365,17 +378,8 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 						errChan <- nil
 						return // We are done
 					}
-					time.Sleep(1 * time.Second)
 				}
-
-				newSize, err := file.Seek(0, io.SeekEnd)
-				if err != nil {
-					err := fmt.Errorf("Error updating file size: %w", err)
-					log.Error(err)
-					errChan <- err
-					return
-				}
-				initialSize = newSize
+				_, err = file.Seek(0, io.SeekEnd)
 			}
 		}
 	}()

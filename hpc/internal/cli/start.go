@@ -25,6 +25,7 @@ var startCmd = &cobra.Command{
 		parseEnv()
 
 		fsDir := os.Getenv("EXECUTOR_FS_DIR")
+		containerFsDir := os.Getenv("EXECUTOR_CONTAINER_FS_DIR")
 		logDir := os.Getenv("EXECUTOR_LOG_DIR")
 		imageDir := os.Getenv("EXECUTOR_IMAGE_DIR")
 
@@ -39,16 +40,21 @@ var startCmd = &cobra.Command{
 		hwCPU := os.Getenv("EXECUTOR_HW_CPU")
 		hwModel := os.Getenv("EXECUTOR_HW_MODEL")
 		hwNodesStr := os.Getenv("EXECUTOR_HW_NODES")
+
 		hwNodes, err := strconv.Atoi(hwNodesStr)
 		CheckError(err)
+
 		hwMem := os.Getenv("EXECUTOR_HW_MEM")
 		hwStorage := os.Getenv("EXECUTOR_HW_STORAGE")
 		hwGPUCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
+
 		hwGPUCount, err := strconv.Atoi(hwGPUCountStr)
 		CheckError(err)
+
 		hwGPUNodeCountStr := os.Getenv("EXECUTOR_HW_GPU_NODES_COUNT")
 		hwGPUNodeCount, err := strconv.Atoi(hwGPUNodeCountStr)
 		CheckError(err)
+
 		hwGPUName := os.Getenv("EXECUTOR_HW_GPU_NAME")
 		hwGPUMem := os.Getenv("EXECUTOR_HW_GPU_MEM")
 		locDesc := os.Getenv("EXECUTOR_LOCATION_DESC")
@@ -58,14 +64,22 @@ var startCmd = &cobra.Command{
 		if err != nil {
 			log.Error("Failed to set location long")
 		}
+
 		latStr := os.Getenv("EXECUTOR_LOCATION_LAT")
 		lat, err := strconv.ParseFloat(latStr, 64)
 		if err != nil {
 			log.Error("Failed to set location long")
 		}
+
 		slurmAccount := os.Getenv("SLURM_ACCOUNT")
 		slurmPartition := os.Getenv("SLURM_PARTITION")
 		slurmModule := os.Getenv("SLURM_MODULE")
+
+		gresStr := os.Getenv("GRES")
+		gres := false
+		if gresStr == "true" {
+			gres = true
+		}
 
 		executor, err := executor.CreateExecutor(
 			executor.WithVerbose(Verbose),
@@ -78,6 +92,7 @@ var startCmd = &cobra.Command{
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithLogDir(logDir),
 			executor.WithFsDir(fsDir),
+			executor.WithContainerFsDir(containerFsDir),
 			executor.WithImageDir(imageDir),
 			executor.WithSoftwareName(swName),
 			executor.WithSoftwareType(swType),
@@ -98,6 +113,7 @@ var startCmd = &cobra.Command{
 			executor.WithLat(lat),
 			executor.WithLocDesc(locDesc),
 			executor.WithExecutorType(executorType),
+			executor.WithGRES(gres),
 		)
 		CheckError(err)
 
