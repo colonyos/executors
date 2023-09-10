@@ -294,6 +294,7 @@ func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executo
 	executor.Capabilities.Hardware.CPU = e.hwCPU
 	executor.Capabilities.Hardware.Model = e.hwModel
 	executor.Capabilities.Hardware.Nodes = e.hwNodes
+	executor.Capabilities.Hardware.Storage = e.hwStorage
 	executor.Capabilities.Hardware.Memory = e.hwMem
 	executor.Capabilities.Hardware.GPU.Count = e.hwGPUCount
 	executor.Capabilities.Hardware.GPU.NodeCount = e.hwGPUNodesCount
@@ -459,15 +460,12 @@ func (e *Executor) sync(filesystem []*core.SyncDir) error {
 
 	for _, syncDir := range filesystem {
 		d := e.fsDir + "/" + syncDir.Dir
-		//if syncDir.SyncOnCompletion && syncDir.Label != "" && syncDir.Dir != "" {
 		if syncDir.SyncOnCompletion && syncDir.Label != "" && d != "" {
-			//err = os.MkdirAll(e.fsDir+"/"+syncDir.Dir, 0755)
 			err = os.MkdirAll(d, 0755)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 			}
 
-			//syncplan, err := fsClient.CalcSyncPlan(syncDir.Dir, syncDir.Label, true)
 			syncplan, err := fsClient.CalcSyncPlan(d, syncDir.Label, true)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
