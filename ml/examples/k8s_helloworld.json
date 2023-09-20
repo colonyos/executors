@@ -1,6 +1,6 @@
 {
     "conditions": {
-        "executortype": "hpc-executor"
+        "executortype": "k8s-executor"
     },
     "funcname": "execute",
     "kwargs": {

@@ -1,12 +1,12 @@
 {
     "conditions": {
-        "executortype": "gpu-mlexecutor"
+        "executortype": "k8s-executor"
     },
     "funcname": "execute",
     "kwargs": {
         "cmd": "python3",
         "args": [
-            "/tmp/classifier/classifier.py"
+            "/tmp/classifier/classifier_download.py"
         ],
         "keep_snapshots": false
     },
@@ -16,7 +16,7 @@
             "dir": "/tmp/classifier"
         },
         {
-            "label": "result",
+            "label": "results",
             "dir": "/tmp/helloworld/result",
             "sync_on_completion": true
         }
