@@ -1,0 +1,19 @@
+{
+    "conditions": {
+        "executortype": "borg-hpcexecutor",
+        "nodes": 3,
+        "processes_per_node": 1,
+        "walltime": 60,
+        "gpu": {
+            "count": 1
+        }
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "nvidia-smi",
+        "docker-image": "tensorflow/tensorflow:2.14.0rc1-gpu"
+    },
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
+}

@@ -1,0 +1,16 @@
+{
+    "conditions": {
+        "executortype": "borg-hpcexecutor",
+        "nodes": 1,
+        "processes_per_node": 1,
+        "walltime": 60
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "ls /",
+        "docker-image": "ubuntu:20.04"
+    },
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
+}
