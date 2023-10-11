@@ -3,7 +3,7 @@ module github.com/colonyos/executors/hpc
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.5.8
+	github.com/colonyos/colonies v1.6.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.7.0

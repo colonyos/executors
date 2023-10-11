@@ -2,6 +2,7 @@ package executor
 
 const SlurmBatchTemplate = `#!/bin/bash
 
+
 #SBATCH --job-name={{.JobName}}
 {{- if .Partition}}
 #SBATCH --partition={{.Partition}}
@@ -32,6 +33,20 @@ const SlurmBatchTemplate = `#!/bin/bash
 {{- if .Module}}
 module load {{.Module}}
 {{- end}}
+
+for varname in $(compgen -v | grep ^COLONIES_); do
+    unset $varname
+done
+
+for varname in $(compgen -v | grep ^EXECUTOR_); do
+    unset $varname
+done
+
+for varname in $(compgen -v | grep ^AWS_S3_); do
+    unset $varname
+done
+
+export COLONIES_PROCESS_ID="{{.ProcessID}}"
 
 {{- if .Image}}
 {{- if gt .GPUs 0}}

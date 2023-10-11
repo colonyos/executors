@@ -406,15 +406,58 @@ func (e *Executor) Shutdown() error {
 	return nil
 }
 
-func (e *Executor) failProcess(process *core.Process, errMsg string) {
-	log.WithFields(log.Fields{"ProcessID": process.ID}).Error(errMsg)
-	err := e.client.Fail(process.ID, []string{errMsg}, e.executorPrvKey)
-	if err != nil {
-		log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err}).Error("Failed to close process as failed")
+func (e *Executor) logInfo(process *core.Process, infoMsg string) {
+	log.WithFields(log.Fields{"ProcessID": process.ID}).Info(infoMsg)
+	if process != nil {
+		err1 := e.client.AddLog(process.ID, "ColonyOS: "+infoMsg+"\n", e.executorPrvKey)
+		if err1 != nil {
+			log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err1}).Error("Failed to add info log to process")
+		}
 	}
 }
 
-func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
+func (e *Executor) logError(process *core.Process, err error, errMsg string) {
+	if err != nil {
+		msg := "ColonyOS: "
+		if errMsg != "" {
+			msg += err.Error() + ":" + errMsg
+		} else {
+			msg += err.Error()
+		}
+		log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err, "ErrMsg": errMsg}).Warn("Closing process as failed")
+		if process != nil {
+			err1 := e.client.AddLog(process.ID, msg+"\n", e.executorPrvKey)
+			if err1 != nil {
+				log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err1}).Error("Failed to add error log to process")
+			}
+		}
+	}
+}
+
+func (e *Executor) handleError(process *core.Process, err error, errMsg string) {
+	if err != nil {
+		msg := "ColonyOS: "
+		if errMsg != "" {
+			msg += err.Error() + ":" + errMsg
+		} else {
+			msg += err.Error()
+		}
+		if process != nil {
+			log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err, "ErrMsg": errMsg}).Warn("Closing process as failed")
+			err1 := e.client.AddLog(process.ID, msg, e.executorPrvKey)
+			if err1 != nil {
+				log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err1}).Error("Failed to add error log to process")
+			}
+			err2 := e.client.Fail(process.ID, []string{msg}, e.executorPrvKey)
+			if err2 != nil {
+				log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err2}).Error("Failed to close process as failed")
+			}
+		}
+	}
+}
+
+func (e *Executor) downloadSnapshots(process *core.Process) error {
+	filesystem := process.FunctionSpec.Filesystem
 	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
 		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
@@ -422,22 +465,26 @@ func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 		return err
 	}
 
-	for _, syncDir := range filesystem {
-		if syncDir.SnapshotID != "" {
-			snapshot, err := e.client.GetSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+	for _, snapshotMount := range filesystem.SnapshotMounts {
+		if snapshotMount.SnapshotID != "" {
+			snapshot, err := e.client.GetSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
 			if err != nil {
-				log.WithFields(log.Fields{"Error": err, "SnapshotId": syncDir.SnapshotID}).Error("Failed to resolve snapshot Id")
+				log.WithFields(log.Fields{"Error": err, "SnapshotId": snapshotMount.SnapshotID}).Error("Failed to resolve snapshotID")
 				return err
 			}
-			log.WithFields(log.Fields{"Label": syncDir.Label, "SnapshotId": snapshot.ID, "Dir": syncDir.Dir}).Info("Downloading snapshot")
 
-			err = os.MkdirAll(e.fsDir+"/"+syncDir.Dir, 0755)
+			newDir := e.fsDir + snapshotMount.Dir
+			newDir = strings.Replace(newDir, "{processid}", process.ID, 1)
+			err = os.MkdirAll(newDir, 0755)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 				return err
 			}
 
-			err = fsClient.DownloadSnapshot(snapshot.ID, e.fsDir+"/"+syncDir.Dir)
+			e.logInfo(process, "Creating directory: "+newDir)
+			e.logInfo(process, "Downloading snapshot: Label:"+snapshot.Label+" SnapshotID:"+snapshot.ID+" Dir:"+newDir)
+			log.WithFields(log.Fields{"Label": snapshotMount.Label, "SnapshotId": snapshot.ID, "Dir": snapshotMount.Dir}).Info("Downloading snapshot")
+			err = fsClient.DownloadSnapshot(snapshot.ID, newDir)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
 				return err
@@ -450,7 +497,8 @@ func (e *Executor) downloadSnapshots(filesystem []*core.SyncDir) error {
 	return nil
 }
 
-func (e *Executor) sync(filesystem []*core.SyncDir) error {
+func (e *Executor) sync(process *core.Process, onProcessStart bool) error {
+	filesystem := process.FunctionSpec.Filesystem
 	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
 		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
@@ -458,27 +506,41 @@ func (e *Executor) sync(filesystem []*core.SyncDir) error {
 		return err
 	}
 
-	for _, syncDir := range filesystem {
-		d := e.fsDir + "/" + syncDir.Dir
-		if syncDir.SyncOnCompletion && syncDir.Label != "" && d != "" {
+	for _, syncDirMount := range filesystem.SyncDirMounts {
+		d := e.fsDir + syncDirMount.Dir
+		d = strings.Replace(d, "{processid}", process.ID, 1)
+		l := strings.Replace(syncDirMount.Label, "{processid}", process.ID, 1)
+		if l != "" && d != "" {
 			err = os.MkdirAll(d, 0755)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
 			}
 
-			syncplan, err := fsClient.CalcSyncPlan(d, syncDir.Label, true)
+			keepLocal := false
+			if onProcessStart {
+				keepLocal = syncDirMount.ConflictResolution.OnStart.KeepLocal
+			} else {
+				keepLocal = syncDirMount.ConflictResolution.OnClose.KeepLocal
+			}
+			syncplan, err := fsClient.CalcSyncPlan(d, l, keepLocal)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
 				return err
 			}
 
+			strategy := "keeplocal"
+			if !keepLocal {
+				strategy = "keepremote"
+			}
+
+			e.logInfo(process, "Starting directory synchronization: Label:"+l+" Dir:"+d+" Download:"+strconv.Itoa(len(syncplan.LocalMissing))+" Upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" Conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" ConflictResolutionStrategy:"+strategy)
 			err = fsClient.ApplySyncPlan(e.colonyID, syncplan)
 			if err != nil {
-				log.WithFields(log.Fields{"Error": err, "Label": syncDir.Label, "Dir": syncDir.Dir}).Error("Failed to apply sync plan")
+				e.handleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)
 				return err
 			}
 		} else {
-			log.Warn("Ignoring sync, SyncOnCompletion, Label and Dir were not set")
+			log.Warn("Cannot perform directory synchronization, Label and Dir were not set")
 		}
 	}
 
@@ -488,9 +550,9 @@ func (e *Executor) sync(filesystem []*core.SyncDir) error {
 func (e *Executor) execute(process *core.Process) error {
 	cmd, ok := process.FunctionSpec.KwArgs["cmd"].(string)
 	if !ok {
-		errMsg := "Failed to parse cmd kwarg"
-		e.failProcess(process, errMsg)
-		return nil
+		err := errors.New("Failed to parse cmd kwargs")
+		e.handleError(process, err, "")
+		return err
 	}
 
 	argsIf := process.FunctionSpec.KwArgs["args"]
@@ -498,11 +560,14 @@ func (e *Executor) execute(process *core.Process) error {
 	var argsStr string
 	if ok {
 		arrStrArray := make([]string, len(argsIfArray))
-
 		for i, v := range argsIfArray {
 			arrStrArray[i] = v.(string)
 		}
 		argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
+	} else {
+		err := errors.New("Failed to parse args kwargs")
+		e.handleError(process, err, "")
+		return err
 	}
 
 	log.WithFields(log.Fields{"Cmd": cmd, "Args": argsStr}).Info("Executing")
@@ -521,6 +586,7 @@ func (e *Executor) execute(process *core.Process) error {
 		command.Env = append(command.Env, attribute.Key+"="+attribute.Value)
 	}
 
+	command.Env = append(command.Env, "COLONIES_PROCESS_ID="+process.ID)
 	command.Env = append(command.Env, "COLONIES_COLONY_ID="+e.colonyID)
 	command.Env = append(command.Env, "COLONIES_PROCESS_ID="+process.ID)
 	command.Env = append(command.Env, "COLONIES_SERVER_HOST="+e.coloniesServerHost)
@@ -531,16 +597,14 @@ func (e *Executor) execute(process *core.Process) error {
 	// Get output
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		log.WithFields(log.Fields{"Error": err}).Info("Failed to open stdout")
-		err = e.client.Fail(process.ID, []string{"Failed to open stdout"}, e.executorPrvKey)
+		e.handleError(process, err, "Failed to open stdout")
 		return err
 	}
 
 	command.Stderr = command.Stdout
 
 	if err = command.Start(); err != nil {
-		log.WithFields(log.Fields{"Error": err}).Info("Failed to start cmd")
-		err = e.client.Fail(process.ID, []string{"Failed to start cmd"}, e.executorPrvKey)
+		e.handleError(process, err, "Failed to start cmd:"+execCmdStr)
 		return err
 	}
 
@@ -571,7 +635,7 @@ func (e *Executor) execute(process *core.Process) error {
 		if c == "\n" {
 			err = e.client.AddLog(process.ID, output, e.executorPrvKey)
 			if err != nil {
-				e.failProcess(process, err.Error())
+				e.handleError(process, err, "Failed to add log to process")
 				return err
 			}
 			output = ""
@@ -579,15 +643,14 @@ func (e *Executor) execute(process *core.Process) error {
 	}
 
 	if err = command.Wait(); err != nil {
-		log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Closing process as failed")
-		e.client.Fail(process.ID, []string{"failed to execute process"}, e.executorPrvKey)
+		e.handleError(process, err, "Failed to execute process")
 		return err
 	}
 
 	return nil
 }
 
-func (e *Executor) ServeForEver() error {
+func (e *Executor) monitorSlurmForever() {
 	go func() {
 		logChan := make(chan *Log, 1000)
 		jobEndedChan := make(chan *JobEnded, 1000)
@@ -599,66 +662,188 @@ func (e *Executor) ServeForEver() error {
 				e.client.AddLog(log.ProcessID, log.Log, e.executorPrvKey)
 			case jobEnded := <-jobEndedChan:
 				log.WithFields(log.Fields{"ProcessId": jobEnded.ProcessID, "SlurmJobId": jobEnded.JobID, "JobStatus": jobEnded.JobStatus}).Info("Slurm job completed")
+				process, err := e.client.GetProcess(jobEnded.ProcessID, e.executorPrvKey)
+				if err != nil {
+					e.handleError(nil, err, "Failed to get process, processID="+jobEnded.ProcessID)
+					continue
+				}
+				if process == nil {
+					e.handleError(nil, err, "Failed to get process, process is nil, processID="+jobEnded.ProcessID)
+					continue
+				}
 				if jobEnded.JobStatus == COMPLETED || jobEnded.JobStatus == COMPLETING {
-					err := e.client.Close(jobEnded.ProcessID, e.executorPrvKey)
-					if err != nil {
-						log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn("Failed to close process")
-					}
-					process, err := e.client.GetProcess(jobEnded.ProcessID, e.executorPrvKey)
-					if err != nil {
-						errMsg := "Failed get process: " + err.Error()
-						log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn(errMsg)
-						err := e.client.Fail(jobEnded.ProcessID, []string{errMsg}, e.executorPrvKey)
-						if err != nil {
-							log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn("Failed to close process")
-						}
-						continue
-					}
-					if process == nil {
-						errMsg := "Process is nil"
-						log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn(errMsg)
-						err := e.client.Fail(jobEnded.ProcessID, []string{errMsg}, e.executorPrvKey)
-						if err != nil {
-							log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn("Failed to close process")
-						}
-						continue
-					}
-					keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
-					keepSnapshots, ok := keepSnapshotsIf.(bool)
-					if !ok {
-						errMsg := "Failed to parse keepsnapshot flag"
-						log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
-						keepSnapshots = false
-					}
-					if !keepSnapshots {
-						for _, syncDir := range process.FunctionSpec.Filesystem {
-							if syncDir.SnapshotID != "" {
-								err = e.client.DeleteSnapshotByID(e.colonyID, syncDir.SnapshotID, e.executorPrvKey)
+					for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
+						if !snapshotMount.KeepSnaphot {
+							if snapshotMount.SnapshotID != "" {
+								err = e.client.DeleteSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
 								if err != nil {
-									log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+									log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
 								} else {
-									log.WithFields(log.Fields{"SnapshotID": syncDir.SnapshotID}).Debug("Snapshot deleted")
+									log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Debug("Snapshot deleted")
+								}
+							}
+							if !snapshotMount.KeepFiles {
+								d := e.fsDir + snapshotMount.Dir
+								d = strings.Replace(d, "{processid}", process.ID, 1)
+								e.logInfo(process, "Deleting snapshot mount dir: "+d)
+								err := os.RemoveAll(d)
+								if err != nil {
+									e.handleError(nil, err, "Failed to delete snapshot files")
 								}
 							}
 						}
 					}
-
-					err = e.sync(process.FunctionSpec.Filesystem)
+					onProcessStart := false
+					err = e.sync(process, onProcessStart)
 					if err != nil {
-						log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Info("Failed to sync")
-						e.failProcess(process, err.Error())
+						e.handleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+						continue
+					}
+					for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
+						if !syncDirMount.KeepFiles {
+							d := e.fsDir + syncDirMount.Dir
+							d = strings.Replace(d, "{processid}", process.ID, 1)
+							e.logInfo(process, "Deleting syncdir mount: "+d)
+							err := os.RemoveAll(d)
+							if err != nil {
+								e.handleError(nil, err, "Failed to delete syncdir files")
+							}
+						}
+					}
+					err = e.client.Close(jobEnded.ProcessID, e.executorPrvKey)
+					if err != nil {
+						e.handleError(process, err, "Failed to close process, processID="+jobEnded.ProcessID)
 						continue
 					}
 				} else {
 					// TODO, add better error message to client
-					err := e.client.Fail(jobEnded.ProcessID, []string{"Failed to run Slurm script"}, e.executorPrvKey)
-					if err != nil {
-						log.WithFields(log.Fields{"Error": err, "ProcessId": jobEnded.ProcessID}).Warn("Failed to close process")
-					}
+					err := errors.New("Failed to execute slurm script")
+					e.handleError(process, err, "")
+					continue
 				}
 			}
 		}
 	}()
+}
+
+func (e *Executor) executeSlurm(process *core.Process) error {
+	err := e.downloadSnapshots(process)
+	if err != nil {
+		e.handleError(process, err, "Failed to download snapshots")
+		return err
+	}
+
+	onProcessStart := true
+	err = e.sync(process, onProcessStart)
+	if err != nil {
+		e.handleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+		return err
+	}
+
+	imageIf := process.FunctionSpec.KwArgs["docker-image"]
+	image, ok := imageIf.(string)
+	if !ok {
+		err := errors.New("Failed to parse docker image flag")
+		e.handleError(process, err, "")
+		return err
+	}
+
+	rebuildImageIf := process.FunctionSpec.KwArgs["rebuild-image"]
+	rebuildImage, ok := rebuildImageIf.(bool)
+	if !ok {
+		e.logInfo(process, "Failed to parse rebuild image flag, setting rebuildImage to false")
+		rebuildImage = false
+	}
+
+	cmd, ok := process.FunctionSpec.KwArgs["cmd"].(string)
+	if !ok {
+		err := errors.New("Failed to parse cmd kwarg")
+		e.handleError(process, err, "")
+		return err
+	}
+
+	argsIf := process.FunctionSpec.KwArgs["args"]
+	argsIfArray, ok := argsIf.([]interface{})
+	var argsStr string
+	if ok {
+		arrStrArray := make([]string, len(argsIfArray))
+		for i, v := range argsIfArray {
+			arrStrArray[i] = v.(string)
+		}
+		argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
+	} else {
+		e.logInfo(process, "Failed to parse args, setting args to empty string")
+		argsStr = ""
+	}
+
+	execCmd := make([]string, 0)
+	for _, arg := range ifArr2StringArr(argsIfArray) {
+		arg = strings.Replace(arg, "{processid}", process.ID, 1)
+		execCmd = append(execCmd, arg)
+	}
+
+	execCmd = append([]string{cmd}, execCmd...)
+	execCmdStr := strings.Join(execCmd[:], " ")
+
+	singularity := CreateSingularity(e.imageDir)
+	script, err := e.slurm.GenerateSlurmScript(process.FunctionSpec.Conditions.Nodes,
+		process.FunctionSpec.Conditions.ProcessesPerNode,
+		int(process.FunctionSpec.Conditions.WallTime),
+		process.FunctionSpec.Conditions.Memory,
+		process.FunctionSpec.Conditions.GPU.Count,
+		execCmdStr,
+		singularity.Sif(image),
+		process.ID)
+	if err != nil {
+		e.handleError(process, err, "Failed to generate Slurm script")
+		return err
+	}
+
+	// e.logInfo(process, "Generated Slurm script:\n "+script)
+
+	e.logInfo(process, "Creating singularity container: "+image+" to "+e.imageDir)
+	if !singularity.SifExists(image) {
+		logs, err := singularity.Pull(image)
+		e.logInfo(process, logs)
+		if err != nil {
+			e.handleError(process, err, "Failed to pull container image: "+image)
+			return err
+		}
+	} else {
+		e.logInfo(process, "Image already exists: "+image)
+	}
+
+	jobID, err := e.slurm.Submit(script)
+	if err != nil {
+		e.handleError(process, err, "Failed to submit Slurm script")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"ProcessID":        process.ID,
+		"SlurmJobID":       jobID,
+		"Nodes":            process.FunctionSpec.Conditions.Nodes,
+		"Memory":           process.FunctionSpec.Conditions.Memory,
+		"CPU":              process.FunctionSpec.Conditions.CPU,
+		"Processes":        process.FunctionSpec.Conditions.Processes,
+		"ProcessesPerNode": process.FunctionSpec.Conditions.ProcessesPerNode,
+		"Walltime":         process.FunctionSpec.Conditions.WallTime,
+		"GPUName":          process.FunctionSpec.Conditions.GPU.Name,
+		"GPUMemory":        process.FunctionSpec.Conditions.GPU.Memory,
+		"GPUCount":         process.FunctionSpec.Conditions.GPU.Count,
+		"Cmd":              cmd,
+		"ExecCmd":          execCmdStr,
+		"Args":             argsStr,
+		"DockerImage":      image,
+		"RebuildImage":     rebuildImage,
+		"SlurmBatchScript": script,
+		"ExecutorType":     process.FunctionSpec.Conditions.ExecutorType}).
+		Info("Executing process")
+	return nil
+}
+
+func (e *Executor) ServeForEver() error {
+	e.monitorSlurmForever()
 
 	for {
 		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
@@ -680,132 +865,12 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			err = e.downloadSnapshots(process.FunctionSpec.Filesystem)
+			err := e.executeSlurm(process)
 			if err != nil {
-				errMsg := "Failed to download snapshot"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
+				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Error("Failed to execute process")
+				// TODO: should we sleep here?
 				continue
 			}
-
-			singularity := CreateSingularity(e.imageDir)
-
-			imageIf := process.FunctionSpec.KwArgs["docker-image"]
-			image, ok := imageIf.(string)
-			if !ok {
-				errMsg := "Failed to parse docker image flag"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
-			}
-
-			rebuildImageIf := process.FunctionSpec.KwArgs["rebuild-image"]
-			rebuildImage, ok := rebuildImageIf.(bool)
-			if !ok {
-				errMsg := "Failed to parse rebuild image flag"
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
-				rebuildImage = false
-			}
-
-			keepSnapshotsIf := process.FunctionSpec.KwArgs["keep_snapshots"]
-			keepSnapshots, ok := keepSnapshotsIf.(bool)
-			if !ok {
-				errMsg := "Failed to parse keep snapshot flag"
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
-				keepSnapshots = false
-			}
-
-			cmd, ok := process.FunctionSpec.KwArgs["cmd"].(string)
-			if !ok {
-				errMsg := "Failed to parse cmd kwarg"
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
-			}
-
-			argsIf := process.FunctionSpec.KwArgs["args"]
-			argsIfArray, ok := argsIf.([]interface{})
-			var argsStr string
-			if ok {
-				arrStrArray := make([]string, len(argsIfArray))
-
-				for i, v := range argsIfArray {
-					arrStrArray[i] = v.(string)
-				}
-				argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
-			} else {
-				errMsg := "Failed to parse args"
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Info(errMsg)
-				argsStr = ""
-			}
-
-			execCmd := make([]string, 0)
-			for _, arg := range ifArr2StringArr(argsIfArray) {
-				execCmd = append(execCmd, arg)
-			}
-
-			execCmd = append([]string{cmd}, execCmd...)
-			execCmdStr := strings.Join(execCmd[:], " ")
-
-			script, err := e.slurm.GenerateSlurmScript(process.FunctionSpec.Conditions.Nodes,
-				process.FunctionSpec.Conditions.ProcessesPerNode,
-				int(process.FunctionSpec.Conditions.WallTime),
-				process.FunctionSpec.Conditions.Memory,
-				process.FunctionSpec.Conditions.GPU.Count,
-				execCmdStr,
-				singularity.Sif(image),
-				process.ID)
-			if err != nil {
-				errMsg := "Failed to generate Slurm script: " + err.Error()
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
-			}
-
-			log.WithFields(log.Fields{
-				"ProcessID":        process.ID,
-				"Nodes":            process.FunctionSpec.Conditions.Nodes,
-				"Memory":           process.FunctionSpec.Conditions.Memory,
-				"CPU":              process.FunctionSpec.Conditions.CPU,
-				"Processes":        process.FunctionSpec.Conditions.Processes,
-				"ProcessesPerNode": process.FunctionSpec.Conditions.ProcessesPerNode,
-				"Walltime":         process.FunctionSpec.Conditions.WallTime,
-				"GPUName":          process.FunctionSpec.Conditions.GPU.Name,
-				"GPUMemory":        process.FunctionSpec.Conditions.GPU.Memory,
-				"GPUCount":         process.FunctionSpec.Conditions.GPU.Count,
-				"Cmd":              cmd,
-				"ExecCmd":          execCmdStr,
-				"Args":             argsStr,
-				"DockerImage":      image,
-				"RebuildImage":     rebuildImage,
-				"KeepSnapshots":    keepSnapshots,
-				"SlurmBatchScript": script,
-				"ExecutorType":     process.FunctionSpec.Conditions.ExecutorType}).
-				Info("Executing")
-
-			if !singularity.SifExists(image) {
-				logs, err := singularity.Pull(image)
-				e.client.AddLog(process.ID, logs, e.executorPrvKey)
-				if err != nil {
-					errMsg := "Failed to submit Slurm batch script " + err.Error()
-					e.failProcess(process, errMsg)
-					log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-					continue
-				}
-			} else {
-				log.WithFields(log.Fields{"Image": image}).Info("Image already exists")
-			}
-
-			fmt.Println(script)
-
-			jobID, err := e.slurm.Submit(script)
-			if err != nil {
-				errMsg := "Failed to submit Slurm batch script " + err.Error()
-				e.failProcess(process, errMsg)
-				log.WithFields(log.Fields{"ProcessID": process.ID}).Warn(errMsg)
-				continue
-			}
-			log.WithFields(log.Fields{"SlurmJobId": jobID, "ProcessId": process.ID}).Info("Slurm script submitted")
 		} else {
 			log.WithFields(log.Fields{"FuncName": process.FunctionSpec.FuncName}).Error("Unsupported funcname")
 			err := e.client.Fail(process.ID, []string{"Unsupported funcname"}, e.executorPrvKey)
