@@ -150,10 +150,9 @@ func (slurm *Slurm) Submit(script string) (int, error) {
 	err = cmd.Run()
 	if err != nil {
 		exitError, ok := err.(*exec.ExitError)
-		fmt.Println(exitError)
 		if ok {
-			log.WithFields(log.Fields{"Error": exitError, "Stderr": stderr.String(), "ExitCode": exitError.ExitCode()}).Error("Command exited with error")
-			return 0, exitError
+			log.WithFields(log.Fields{"Error": exitError, "Stderr": stderr.String(), "ExitCode": exitError.ExitCode()}).Error("Command exit with error")
+			return 0, errors.New(exitError.Error() + ":" + stderr.String())
 		}
 		return 0, err
 	}
