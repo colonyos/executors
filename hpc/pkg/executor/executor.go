@@ -668,6 +668,9 @@ func (e *Executor) monitorSlurmForever() {
 				if jobEnded.JobStatus == COMPLETED || jobEnded.JobStatus == COMPLETING {
 					if process.FunctionSpec.Filesystem.Mount != "" {
 						for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
+							fmt.Println("XXXXXXXXXXXXXXXXXXXx")
+							fmt.Println(snapshotMount.KeepSnaphot)
+							fmt.Println("XXXXXXXXXXXXXXXXXXXx")
 							if !snapshotMount.KeepSnaphot {
 								if snapshotMount.SnapshotID != "" {
 									err = e.client.DeleteSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
@@ -805,13 +808,24 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		execCmdStr,
 		singularity.Sif(image),
 		process.ID,
-		containerMount)
+		containerMount,
+		fmt.Sprintf("%t", !e.coloniesInsecure),
+		e.coloniesServerHost,
+		strconv.Itoa(e.coloniesServerPort),
+		e.colonyID,
+		e.executorID,
+		e.executorPrvKey)
 	if err != nil {
 		e.handleError(process, err, "Failed to generate Slurm script")
 		return err
 	}
 
-	e.logInfo(process, "Generated Slurm script:\n "+script)
+	// e.logInfo(process, "Generated Slurm script:\n "+script)
+
+	if rebuildImage {
+		err := singularity.RemoveSif(image)
+		e.handleError(process, err, "Failed to remove Singularity image: "+image)
+	}
 
 	e.logInfo(process, "Creating singularity container: "+image+" to "+e.imageDir)
 	if !singularity.SifExists(image) {
@@ -877,6 +891,7 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
+			fmt.Println(process)
 			err := e.executeSlurm(process)
 			if err != nil {
 				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Error("Failed to execute process")

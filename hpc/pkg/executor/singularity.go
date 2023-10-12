@@ -126,6 +126,11 @@ func (singularity *Singularity) SifExists(dockerImage string) bool {
 	return err == nil
 }
 
+func (singularity *Singularity) RemoveSif(dockerImage string) error {
+	sif := singularity.Sif(dockerImage)
+	return os.RemoveAll(sif)
+}
+
 func (singularity *Singularity) Sif(dockerImage string) string {
 	img := strings.ReplaceAll(dockerImage, "/", "_")
 	return singularity.containerDir + "/" + img + ".sif"
