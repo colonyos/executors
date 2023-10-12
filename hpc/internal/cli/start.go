@@ -25,7 +25,6 @@ var startCmd = &cobra.Command{
 		parseEnv()
 
 		fsDir := os.Getenv("EXECUTOR_FS_DIR")
-		containerFsDir := os.Getenv("EXECUTOR_CONTAINER_FS_DIR")
 		logDir := os.Getenv("EXECUTOR_LOG_DIR")
 		imageDir := os.Getenv("EXECUTOR_IMAGE_DIR")
 
@@ -92,7 +91,6 @@ var startCmd = &cobra.Command{
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithLogDir(logDir),
 			executor.WithFsDir(fsDir),
-			executor.WithContainerFsDir(containerFsDir),
 			executor.WithImageDir(imageDir),
 			executor.WithSoftwareName(swName),
 			executor.WithSoftwareType(swType),

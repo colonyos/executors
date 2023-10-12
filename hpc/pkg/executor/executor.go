@@ -54,7 +54,6 @@ type Executor struct {
 	executorType       string
 	logDir             string
 	fsDir              string
-	containerFsDir     string
 	imageDir           string
 	swName             string
 	swType             string
@@ -239,12 +238,6 @@ func WithFsDir(fsDir string) ExecutorOption {
 	}
 }
 
-func WithContainerFsDir(containerFsDir string) ExecutorOption {
-	return func(e *Executor) {
-		e.containerFsDir = containerFsDir
-	}
-}
-
 func WithImageDir(imageDir string) ExecutorOption {
 	return func(e *Executor) {
 		e.imageDir = imageDir
@@ -353,7 +346,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
-	e.slurm = CreateSlurm(e.fsDir, e.containerFsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
+	e.slurm = CreateSlurm(e.fsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
 
 	log.WithFields(log.Fields{
 		"Verbose":               e.verbose,
@@ -362,7 +355,6 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"ColoniesInsecure":      e.coloniesInsecure,
 		"LogDir":                e.logDir,
 		"FsDir":                 e.fsDir,
-		"ContainerFsDir":        e.containerFsDir,
 		"ImageDir":              e.imageDir,
 		"ColonyId":              e.colonyID,
 		"ColonyPrvKey":          "***********************",
@@ -460,8 +452,7 @@ func (e *Executor) downloadSnapshots(process *core.Process) error {
 	filesystem := process.FunctionSpec.Filesystem
 	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
-		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
-		log.Error(err)
+		e.handleError(process, err, "Failed to create FSClient, trying to download snapshots")
 		return err
 	}
 
@@ -469,7 +460,7 @@ func (e *Executor) downloadSnapshots(process *core.Process) error {
 		if snapshotMount.SnapshotID != "" {
 			snapshot, err := e.client.GetSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
 			if err != nil {
-				log.WithFields(log.Fields{"Error": err, "SnapshotId": snapshotMount.SnapshotID}).Error("Failed to resolve snapshotID")
+				e.handleError(process, err, "Failed to resolve snapshotID")
 				return err
 			}
 
@@ -477,7 +468,7 @@ func (e *Executor) downloadSnapshots(process *core.Process) error {
 			newDir = strings.Replace(newDir, "{processid}", process.ID, 1)
 			err = os.MkdirAll(newDir, 0755)
 			if err != nil {
-				log.WithFields(log.Fields{"Error": err}).Error("Failed to create download dir")
+				e.handleError(process, err, "Failed to create download dir")
 				return err
 			}
 
@@ -486,7 +477,7 @@ func (e *Executor) downloadSnapshots(process *core.Process) error {
 			log.WithFields(log.Fields{"Label": snapshotMount.Label, "SnapshotId": snapshot.ID, "Dir": snapshotMount.Dir}).Info("Downloading snapshot")
 			err = fsClient.DownloadSnapshot(snapshot.ID, newDir)
 			if err != nil {
-				log.WithFields(log.Fields{"Error": err}).Error("Failed to download snapshot")
+				e.handleError(process, err, "Failed to download snapshot")
 				return err
 			}
 		} else {
@@ -501,8 +492,7 @@ func (e *Executor) sync(process *core.Process, onProcessStart bool) error {
 	filesystem := process.FunctionSpec.Filesystem
 	fsClient, err := fs.CreateFSClient(e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
-		log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient")
-		log.Error(err)
+		e.handleError(process, err, "Failed to create FSClient, trying to sync")
 		return err
 	}
 
@@ -586,6 +576,8 @@ func (e *Executor) execute(process *core.Process) error {
 		command.Env = append(command.Env, attribute.Key+"="+attribute.Value)
 	}
 
+	// TODO: setting env variables does not work, it has to be set in the slurm script.
+	// For an example, see how COLONIES_PROCESS_ID is set.
 	command.Env = append(command.Env, "COLONIES_PROCESS_ID="+process.ID)
 	command.Env = append(command.Env, "COLONIES_COLONY_ID="+e.colonyID)
 	command.Env = append(command.Env, "COLONIES_PROCESS_ID="+process.ID)
@@ -793,13 +785,14 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		process.FunctionSpec.Conditions.GPU.Count,
 		execCmdStr,
 		singularity.Sif(image),
-		process.ID)
+		process.ID,
+		process.FunctionSpec.Filesystem.Mount)
 	if err != nil {
 		e.handleError(process, err, "Failed to generate Slurm script")
 		return err
 	}
 
-	// e.logInfo(process, "Generated Slurm script:\n "+script)
+	e.logInfo(process, "Generated Slurm script:\n "+script)
 
 	e.logInfo(process, "Creating singularity container: "+image+" to "+e.imageDir)
 	if !singularity.SifExists(image) {

@@ -35,13 +35,12 @@ const (
 )
 
 type Slurm struct {
-	fsDir          string
-	containerFsDir string
-	logDir         string
-	partition      string
-	account        string
-	module         string
-	gres           bool
+	fsDir     string
+	logDir    string
+	partition string
+	account   string
+	module    string
+	gres      bool
 }
 
 type Log struct {
@@ -73,15 +72,14 @@ type JobParams struct {
 	GRES         bool
 }
 
-func CreateSlurm(fsDir string, containerFsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
+func CreateSlurm(fsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
 	slurm := &Slurm{
-		fsDir:          fsDir,
-		containerFsDir: containerFsDir,
-		logDir:         logDir,
-		partition:      partition,
-		account:        account,
-		module:         module,
-		gres:           gres,
+		fsDir:     fsDir,
+		logDir:    logDir,
+		partition: partition,
+		account:   account,
+		module:    module,
+		gres:      gres,
 	}
 
 	os.MkdirAll(fsDir, 0755)
@@ -97,7 +95,7 @@ func formatSecondsToTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
-func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string) (string, error) {
+func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string, containerFsDir string) (string, error) {
 	params := JobParams{
 		LogDir:       slurm.logDir,
 		Partition:    slurm.partition,
@@ -113,7 +111,7 @@ func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime in
 		Image:        image,
 		ProcessID:    processID,
 		GRES:         slurm.gres,
-		Bind:         slurm.fsDir + ":" + slurm.containerFsDir,
+		Bind:         slurm.fsDir + ":" + containerFsDir,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))
@@ -155,7 +153,7 @@ func (slurm *Slurm) Submit(script string) (int, error) {
 		fmt.Println(exitError)
 		if ok {
 			log.WithFields(log.Fields{"Error": exitError, "Stderr": stderr.String(), "ExitCode": exitError.ExitCode()}).Error("Command exited with error")
-			// TODO: return a error message
+			return 0, exitError
 		}
 		return 0, err
 	}
