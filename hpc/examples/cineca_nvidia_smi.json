@@ -1,11 +1,11 @@
 {
     "conditions": {
         "executortype": "leonardo-hpcexecutor",
-        "nodes": 1,
+        "nodes": 4,
         "processes_per_node": 1,
         "mem": "15G",
         "gpu": {
-            "count": 1
+            "count": 4
         },
         "walltime": 600
     },

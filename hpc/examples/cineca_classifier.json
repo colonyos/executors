@@ -15,25 +15,43 @@
         "docker-image": "johan/classifier",
         "rebuild-image": false,
         "args": [
-            "/cfs/src/classifier.py"
-        ],
-        "keep_snapshots": false
+            "/cfs/src/{processid}/classifier.py"
+        ]
     },
-    "fs": [
-        {
-            "label": "src",
-            "dir": "/src"
-        },
-        {
-            "label": "data",
-            "dir": "/data"
-        },
-        {
-            "label": "results",
-            "dir": "/results",
-            "sync_on_completion": true
-        }
-    ],
+    "fs": {
+        "mount": "/cfs",
+        "snapshots": [
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/src",
+                "dir": "/src/{processid}",
+                "keepfiles": false,
+                "keepsnaphot": false
+            },
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/data",
+                "dir": "/data",
+                "keepfiles": true,
+                "keepsnaphot": false
+            }
+        ],
+        "dirs": [
+            {
+                "label": "/results",
+                "dir": "/results",
+                "keepfiles": true,
+                "onconflicts": {
+                    "onstart": {
+                        "keeplocal": false
+                    },
+                    "onclose": {
+                        "keeplocal": true
+                    }
+                }
+            }
+        ]
+    },
     "maxwaittime": -1,
     "maxexectime": 600,
     "maxretries": 3
