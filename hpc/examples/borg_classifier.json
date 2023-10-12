@@ -15,7 +15,8 @@
         "rebuild-image": false,
         "args": [
             "/cfs/src/{processid}/classifier.py"
-        ]
+        ],
+        "learning-rate": 0.1
     },
     "fs": {
         "mount": "/cfs",
@@ -24,15 +25,15 @@
                 "snapshotid": "{snapshotid}",
                 "label": "/src",
                 "dir": "/src/{processid}",
-                "keepfiles": false,
-                "keepsnaphot": false
+                "keepfiles": true,
+                "keepsnaphot": true
             },
             {
                 "snapshotid": "{snapshotid}",
                 "label": "/data",
                 "dir": "/data",
                 "keepfiles": true,
-                "keepsnaphot": false
+                "keepsnaphot": true
             }
         ],
         "dirs": [
