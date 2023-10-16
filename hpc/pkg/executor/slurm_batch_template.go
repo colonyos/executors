@@ -54,6 +54,7 @@ export COLONIES_COLONY_ID="{{.ColonyID}}"
 export COLONIES_EXECUTOR_ID="{{.ExecutorID}}"
 export COLONIES_EXECUTOR_PRVKEY="{{.ExecutorPrvKey}}"
 export COLONIES_PROCESS_ID="{{.ProcessID}}"
+export COLONIES_PROCESS="{{.Process}}"
 
 {{- if .Image}}
 {{- if gt .GPUs 0}}

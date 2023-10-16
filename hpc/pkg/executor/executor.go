@@ -668,9 +668,7 @@ func (e *Executor) monitorSlurmForever() {
 				if jobEnded.JobStatus == COMPLETED || jobEnded.JobStatus == COMPLETING {
 					if process.FunctionSpec.Filesystem.Mount != "" {
 						for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
-							fmt.Println("XXXXXXXXXXXXXXXXXXXx")
 							fmt.Println(snapshotMount.KeepSnaphot)
-							fmt.Println("XXXXXXXXXXXXXXXXXXXx")
 							if !snapshotMount.KeepSnaphot {
 								if snapshotMount.SnapshotID != "" {
 									err = e.client.DeleteSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
@@ -808,6 +806,7 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		execCmdStr,
 		singularity.Sif(image),
 		process.ID,
+		process,
 		containerMount,
 		fmt.Sprintf("%t", !e.coloniesInsecure),
 		e.coloniesServerHost,
@@ -891,7 +890,6 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			fmt.Println(process)
 			err := e.executeSlurm(process)
 			if err != nil {
 				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Error("Failed to execute process")

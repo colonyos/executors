@@ -2,6 +2,7 @@ package executor
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/colonyos/colonies/pkg/core"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -68,6 +70,7 @@ type JobParams struct {
 	Command            string
 	Image              string
 	ProcessID          string
+	Process            string
 	Bind               string
 	GRES               bool
 	ColoniesTLS        string
@@ -101,7 +104,14 @@ func formatSecondsToTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
-func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string, containerFsDir string, coloniesTLS string, coloniesServerHost string, coloniesServerPort string, colonyID string, executorID string, executorPrvKey string) (string, error) {
+func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string, process *core.Process, containerFsDir string, coloniesTLS string, coloniesServerHost string, coloniesServerPort string, colonyID string, executorID string, executorPrvKey string) (string, error) {
+	processJSON, err := process.ToJSON()
+	if err != nil {
+		return "", err
+	}
+
+	processBase64 := base64.StdEncoding.EncodeToString([]byte(processJSON))
+
 	params := JobParams{
 		LogDir:             slurm.logDir,
 		Partition:          slurm.partition,
@@ -116,6 +126,7 @@ func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime in
 		Command:            command,
 		Image:              image,
 		ProcessID:          processID,
+		Process:            processBase64,
 		GRES:               slurm.gres,
 		Bind:               slurm.fsDir + ":" + containerFsDir,
 		ColoniesTLS:        coloniesTLS,
@@ -145,8 +156,6 @@ func (slurm *Slurm) Submit(script string) (int, error) {
 		return 0, err
 	}
 	defer os.Remove(tmpfile.Name())
-
-	fmt.Println(tmpfile.Name())
 
 	_, err = tmpfile.WriteString(script)
 	if err != nil {

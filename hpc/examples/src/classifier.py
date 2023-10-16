@@ -12,18 +12,24 @@ import pathlib
 import os
 import pickle
 import tarfile
+import json
+import base64
 from pathlib import Path
 
 from pycolonies import Colonies
 from pycolonies import colonies_client
 from pycolonies import func_spec
 
-colonies, colonyid, colony_prvkey, executorid, executor_prvkey = colonies_client()
-
+#colonies, colonyid, colony_prvkey, executorid, executor_prvkey = colonies_client()
 process_id = os.environ.get('COLONIES_PROCESS_ID')
+#process_b64 = os.environ.get('COLONIES_PROCESS')
+#process_bytes = base64.b64decode(process_b64)
+#process_str = process_bytes.decode('utf-8')
+#process = json.loads(process_str)
+#learningrate = process["spec"]["kwargs"]["learning-rate"]
+learningrate = 0.001
 
-process = colonies.get_process(process_id, executor_prvkey)
-learningrate = process["spec"]["kwargs"]["learning-rate"]
+print("learningrate:", learningrate)
 
 tar_path = "/cfs/data/flower_photos.tgz"
 data_dir = Path("/tmp/flower_photos/")
@@ -131,4 +137,4 @@ final_val_accuracy = history.history['val_accuracy'][-1]
 print("final_train_accuracy: ", final_train_accuracy)
 print("final_val_accuracy: ", final_val_accuracy)
 
-colonies.set_output(process_id, [final_train_accuracy, final_val_accuracy], executor_prvkey)
+#colonies.set_output(process_id, [final_train_accuracy, final_val_accuracy], executor_prvkey)
