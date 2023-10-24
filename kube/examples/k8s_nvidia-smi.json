@@ -1,0 +1,10 @@
+{
+    "conditions": {
+        "executortype": "k8s-executor"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "snapshots": [],
+        "cmd": "nvidia-smi"
+    }
+}

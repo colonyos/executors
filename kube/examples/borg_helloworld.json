@@ -1,0 +1,33 @@
+{
+    "conditions": {
+        "executortype": "borg-kubeexecutor",
+        "nodes": 1,
+        "processes_per_node": 1,
+        "walltime": 60
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "python3",
+        "docker-image": "python:3.12-rc-bookworm",
+        "rebuild-image": false,
+        "args": [
+            "/cfs/src/{processid}/helloworld.py"
+        ],
+        "keep_snapshots": false
+    },
+    "fs": {
+        "mount": "/cfs",
+        "snapshots": [
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/src",
+                "dir": "/src/{processid}",
+                "keepfiles": false,
+                "keepsnaphot": false
+            }
+        ]
+    },
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
+}
