@@ -1,4 +1,4 @@
-package fs
+package sync
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"github.com/colonyos/colonies/pkg/client"
 	"github.com/colonyos/colonies/pkg/core"
 	"github.com/colonyos/colonies/pkg/fs"
+	"github.com/colonyos/executors/common/pkg/debug"
 	"github.com/colonyos/executors/common/pkg/failure"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,13 +20,15 @@ type SyncHandler struct {
 	client         *client.ColoniesClient
 	fsDir          string
 	failureHandler *failure.FailureHandler
+	debugHandler   *debug.DebugHandler
 }
 
 func CreateSyncHandler(colonyID string,
 	executorPrvKey string,
 	client *client.ColoniesClient,
 	fsDir string,
-	failureHandler *failure.FailureHandler) (*SyncHandler, error) {
+	failureHandler *failure.FailureHandler,
+	debugHandler *debug.DebugHandler) (*SyncHandler, error) {
 	if client == nil {
 		return nil, errors.New("colonies client is nil")
 	}
@@ -34,7 +37,7 @@ func CreateSyncHandler(colonyID string,
 		return nil, errors.New("colonies failure client is nil")
 	}
 
-	return &SyncHandler{colonyID: colonyID, executorPrvKey: executorPrvKey, client: client, fsDir: fsDir, failureHandler: failureHandler}, nil
+	return &SyncHandler{colonyID: colonyID, executorPrvKey: executorPrvKey, client: client, fsDir: fsDir, failureHandler: failureHandler, debugHandler: debugHandler}, nil
 }
 
 func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
@@ -61,8 +64,8 @@ func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
 				return err
 			}
 
-			syncHandler.failureHandler.LogInfo(process, "Creating directory: "+newDir)
-			syncHandler.failureHandler.LogInfo(process, "Downloading snapshot: Label:"+snapshot.Label+" SnapshotID:"+snapshot.ID+" Dir:"+newDir)
+			syncHandler.debugHandler.LogInfo(process, "Creating directory: "+newDir)
+			syncHandler.debugHandler.LogInfo(process, "Downloading snapshot: Label:"+snapshot.Label+" SnapshotID:"+snapshot.ID+" Dir:"+newDir)
 			log.WithFields(log.Fields{"Label": snapshotMount.Label, "SnapshotId": snapshot.ID, "Dir": snapshotMount.Dir}).Info("Downloading snapshot")
 			err = fsClient.DownloadSnapshot(snapshot.ID, newDir)
 			if err != nil {
@@ -112,7 +115,7 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 				strategy = "keepremote"
 			}
 
-			syncHandler.failureHandler.LogInfo(process, "Starting directory synchronization: Label:"+l+" Dir:"+d+" Download:"+strconv.Itoa(len(syncplan.LocalMissing))+" Upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" Conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" ConflictResolutionStrategy:"+strategy)
+			syncHandler.debugHandler.LogInfo(process, "Starting directory synchronization: Label:"+l+" Dir:"+d+" Download:"+strconv.Itoa(len(syncplan.LocalMissing))+" Upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" Conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" ConflictResolutionStrategy:"+strategy)
 			err = fsClient.ApplySyncPlan(syncHandler.colonyID, syncplan)
 			if err != nil {
 				syncHandler.failureHandler.HandleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)
