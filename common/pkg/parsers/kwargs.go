@@ -16,6 +16,7 @@ type KwArgs struct {
 	Cmd          string
 	Args         string
 	ExecCmd      string
+	ExecCmdArr   []string
 }
 
 func strArr2Str(args []string) string {
@@ -72,6 +73,7 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 			arrStrArray[i] = v.(string)
 		}
 		argsStr = strArr2Str(ifArr2StringArr(argsIfArray))
+
 	} else {
 		debugHandler.LogInfo(process, "Failed to parse args, setting args to empty string")
 		argsStr = ""
@@ -86,5 +88,5 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 	execCmd = append([]string{cmd}, execCmd...)
 	execCmdStr := strings.Join(execCmd[:], " ")
 
-	return &KwArgs{Image: image, RebuildImage: rebuildImage, Cmd: cmd, Args: argsStr, ExecCmd: execCmdStr}, nil
+	return &KwArgs{Image: image, RebuildImage: rebuildImage, Cmd: cmd, Args: argsStr, ExecCmd: execCmdStr, ExecCmdArr: execCmd}, nil
 }

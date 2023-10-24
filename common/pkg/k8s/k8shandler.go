@@ -227,7 +227,7 @@ func (handler K8sHandler) CreateDeployment(deploymentYAML string) error {
 	return nil
 }
 
-func (handler K8sHandler) CreateJob(jobYAML string, jobName string) ([]string, error) {
+func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *JobSpec) ([]string, error) {
 	job := &unstructured.Unstructured{}
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	_, _, err := dec.Decode([]byte(jobYAML), nil, job)
@@ -241,9 +241,24 @@ func (handler K8sHandler) CreateJob(jobYAML string, jobName string) ([]string, e
 		return nil, err
 	}
 
-	podNames, err := handler.GetPodNames()
-	if err != nil {
-		return nil, err
+	maxRetries := 600
+	retries := 0
+	var podNames []string
+	for {
+		if retries == maxRetries {
+			return nil, errors.New("Pods failed to start")
+		}
+		podNames, err = handler.GetPodNames()
+		if err != nil {
+			return nil, err
+		}
+		if len(podNames) != jobSpec.Parallelism {
+			time.Sleep(1 * time.Second)
+			retries++
+			continue
+		} else {
+			break
+		}
 	}
 
 	var jobPodNames []string
@@ -437,7 +452,41 @@ type Log struct {
 	ErrChan chan error
 }
 
-func (handler *K8sHandler) PrintLog(podName string, containerName string, follow bool) error {
+func (handler *K8sHandler) PrintAllLogs(podName string, follow bool) error {
+	containerNames, err := handler.GetContainerNames(podName)
+	if err != nil {
+		return err
+	}
+
+outerloop:
+	for _, containerName := range containerNames {
+		log, err := handler.GetLog(podName, containerName, follow)
+		if err != nil {
+			return err
+		}
+
+	innerloop:
+		for {
+			select {
+			case msg := <-log.MsgChan:
+				fmt.Println(msg)
+			case err := <-log.ErrChan:
+				fmt.Println(err)
+				break outerloop
+			case <-log.EofChan:
+				if len(log.MsgChan) > 0 {
+					msg := <-log.MsgChan
+					fmt.Println(msg)
+				}
+				break innerloop
+			}
+		}
+	}
+
+	return nil
+}
+
+func (handler *K8sHandler) PrintLogs(podName string, containerName string, follow bool) error {
 	log, err := handler.GetLog(podName, containerName, follow)
 	if err != nil {
 		return err

@@ -26,6 +26,10 @@ func createTestJobSpec() JobSpec {
 	spec := JobSpec{
 		JobContainerName:  "kubeexecutor-jobcontainer",
 		JobContainerImage: "busybox",
+		ExecCmd:           "echo",
+		ArgsStr:           "helloworld!",
+		Parallelism:       4,
+		ContainersPerPod:  2,
 	}
 
 	return spec

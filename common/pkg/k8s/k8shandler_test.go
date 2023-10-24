@@ -15,7 +15,6 @@ func TestK8sHandlerComposeDeployment(t *testing.T) {
 	assert.Nil(t, err)
 
 	spec := createTestDeploymentSpec()
-	fmt.Println(spec)
 	yaml, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
@@ -28,13 +27,14 @@ func TestK8sHandlerComposeJob(t *testing.T) {
 	spec := createTestJobSpec()
 	fmt.Println(spec)
 	yaml, podName, err := handler.ComposeJobYAML(spec)
+	fmt.Println(err)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
 	fmt.Println(podName)
 }
 
 func TestK8sHandlerCreateJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job20")
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job24")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
@@ -47,7 +47,7 @@ func TestK8sHandlerCreateJob(t *testing.T) {
 	fmt.Println(yaml)
 	fmt.Println(jobName)
 
-	jobPodNames, err := handler.CreateJob(yaml, jobName)
+	jobPodNames, err := handler.CreateJob(yaml, jobName, &spec)
 	assert.Nil(t, err)
 	fmt.Println(jobPodNames)
 
@@ -57,7 +57,7 @@ func TestK8sHandlerCreateJob(t *testing.T) {
 	assert.Equal(t, jobNames[0], jobName)
 
 	for _, jobPodName := range jobPodNames {
-		err = handler.PrintLog(jobPodName, spec.JobContainerName, true)
+		err = handler.PrintAllLogs(jobPodName, true)
 		assert.Nil(t, err)
 	}
 
@@ -79,7 +79,7 @@ func TestK8sHandlerGetLogsInvalidContainer(t *testing.T) {
 	fmt.Println(yaml)
 	fmt.Println(jobName)
 
-	jobPodNames, err := handler.CreateJob(yaml, jobName)
+	jobPodNames, err := handler.CreateJob(yaml, jobName, &spec)
 	assert.Nil(t, err)
 	assert.Len(t, jobPodNames, 3)
 
@@ -226,7 +226,7 @@ func TestK8sHandlerGetContainerOutput(t *testing.T) {
 	assert.Nil(t, err)
 
 	go func() {
-		handler.PrintLog(podName, "modelresource-downloader", false)
+		handler.PrintLogs(podName, "modelresource-downloader", false)
 	}()
 
 	time.Sleep(10 * time.Second)
