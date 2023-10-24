@@ -30,7 +30,7 @@ var startCmd = &cobra.Command{
 
 		executorType := os.Getenv("EXECUTOR_TYPE")
 		if executorType == "" {
-			CheckError(errors.New("Executor type not specifed, defaulting to hpc"))
+			CheckError(errors.New("Executor type not specifed"))
 		}
 
 		swName := os.Getenv("EXECUTOR_SW_NAME")
