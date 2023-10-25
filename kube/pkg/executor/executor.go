@@ -14,6 +14,7 @@ import (
 	"github.com/colonyos/colonies/pkg/security/crypto"
 	"github.com/colonyos/executors/common/pkg/debug"
 	"github.com/colonyos/executors/common/pkg/failure"
+	"github.com/colonyos/executors/common/pkg/k8s"
 	"github.com/colonyos/executors/common/pkg/parsers"
 	"github.com/colonyos/executors/common/pkg/sync"
 	log "github.com/sirupsen/logrus"
@@ -354,7 +355,25 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		return err
 	}
 
+	fmt.Println("-----------------------")
 	fmt.Println(kwArgs)
+	fmt.Println("cmd:", kwArgs.ExecCmdArr)
+	fmt.Println("-----------------------")
+
+	spec := k8s.JobSpec{
+		JobContainerImage: kwArgs.Image,
+		ExecCmd:           kwArgs.Cmd,
+		ArgsStr:           kwArgs.Args,
+		Parallelism:       process.FunctionSpec.Conditions.Nodes,
+		ContainersPerPod:  process.FunctionSpec.Conditions.ProcessesPerNode,
+		CPU:               process.FunctionSpec.Conditions.CPU,
+		Memory:            process.FunctionSpec.Conditions.Memory,
+		UseGPU:            process.FunctionSpec.Conditions.GPU.NodeCount > 0,
+		GPUCount:          process.FunctionSpec.Conditions.GPU.NodeCount,
+		GPUName:           process.FunctionSpec.Conditions.GPU.Name,
+	}
+
+	fmt.Println(spec)
 
 	return nil
 }
