@@ -170,6 +170,7 @@ func (handler K8sHandler) ComposeJobYAML(spec JobSpec) (string, string, error) {
 	}
 
 	spec.JobName = handler.executorName + "-" + JobName + "-" + strconv.Itoa(handler.jobCounter)
+	spec.JobContainerName = handler.executorName + "-" + JobName + "-" + strconv.Itoa(handler.jobCounter) + "-" + "container"
 	handler.jobCounter++
 	spec.Namespace = handler.namespace
 
@@ -241,6 +242,7 @@ func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *Job
 		return nil, err
 	}
 
+	// Block until all Pods has been created
 	maxRetries := 600
 	retries := 0
 	var podNames []string
@@ -265,6 +267,26 @@ func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *Job
 	for _, podName := range podNames {
 		if strings.HasPrefix(podName, jobName) {
 			jobPodNames = append(jobPodNames, podName)
+		}
+	}
+
+	retries = 0
+	for {
+		podCounter := 0
+		if retries == maxRetries {
+			return nil, errors.New("Pods failed to start")
+		}
+		for _, jobPodName := range jobPodNames {
+			hasStarted, err := handler.HasPodStarted(jobPodName)
+			if err != nil {
+				return nil, err
+			}
+			if hasStarted {
+				podCounter++
+			}
+		}
+		if podCounter == jobSpec.Parallelism {
+			break
 		}
 	}
 
@@ -332,7 +354,6 @@ func (handler *K8sHandler) GetPodNames() ([]string, error) {
 
 	var podNames []string
 	for _, pod := range pods.Items {
-		//fmt.Println(string(pod.Status.Phase))
 		podNames = append(podNames, pod.ObjectMeta.Name)
 	}
 
@@ -417,6 +438,28 @@ func (handler *K8sHandler) HasPodFinished(podName string) (bool, error) {
 	}
 
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (handler *K8sHandler) HasPodStarted(podName string) (bool, error) {
+	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodRunning {
+		return true, nil
+	}
+
+	finished, err := handler.HasPodFinished(podName)
+	if err != nil {
+		return false, err
+	}
+
+	if finished {
 		return true, nil
 	}
 

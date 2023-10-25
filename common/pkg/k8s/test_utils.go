@@ -24,12 +24,16 @@ func createTestDeploymentSpec() DeploymentSpec {
 
 func createTestJobSpec() JobSpec {
 	spec := JobSpec{
-		JobContainerName:  "kubeexecutor-jobcontainer",
 		JobContainerImage: "busybox",
 		ExecCmd:           "echo",
 		ArgsStr:           "helloworld!",
 		Parallelism:       4,
 		ContainersPerPod:  2,
+		CPU:               "500m",
+		Memory:            "1Gi",
+		UseGPU:            false,
+		GPUCount:          1,
+		GPUName:           "nvidia-gtx-2080ti",
 	}
 
 	return spec

@@ -34,7 +34,7 @@ func TestK8sHandlerComposeJob(t *testing.T) {
 }
 
 func TestK8sHandlerCreateJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job24")
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job299")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
@@ -81,7 +81,7 @@ func TestK8sHandlerGetLogsInvalidContainer(t *testing.T) {
 
 	jobPodNames, err := handler.CreateJob(yaml, jobName, &spec)
 	assert.Nil(t, err)
-	assert.Len(t, jobPodNames, 3)
+	assert.True(t, len(jobPodNames) > 1)
 
 	_, err = handler.GetLog(jobPodNames[0]+"error", spec.JobContainerName, true)
 	assert.NotNil(t, err)

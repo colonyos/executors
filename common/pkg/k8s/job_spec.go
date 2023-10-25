@@ -10,8 +10,13 @@ type JobSpec struct {
 	Namespace         string
 	ExecCmd           string
 	ArgsStr           string
+	CPU               string
+	Memory            string
 	Parallelism       int
 	ContainersPerPod  int
+	UseGPU            bool
+	GPUName           string
+	GPUCount          int
 }
 
 func (spec *JobSpec) ToJSON() (string, error) {
@@ -34,6 +39,7 @@ func (spec *JobSpec) Equals(spec2 *JobSpec) bool {
 		spec.JobContainerImage == spec2.JobContainerImage &&
 		spec.ExecCmd == spec2.ExecCmd &&
 		spec.ArgsStr == spec2.ArgsStr &&
+		spec.Parallelism == spec2.Parallelism &&
 		spec.ContainersPerPod == spec2.ContainersPerPod &&
 		spec.Namespace == spec2.Namespace {
 		return true
