@@ -11,7 +11,8 @@ import (
 const deploymentWaittime = 10 // 5 seconds
 
 func TestK8sHandlerComposeDeployment(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace0")
+	namespace := "testnamespace0"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	spec := createTestDeploymentSpec()
@@ -21,7 +22,8 @@ func TestK8sHandlerComposeDeployment(t *testing.T) {
 }
 
 func TestK8sHandlerComposeJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace0")
+	namespace := "testnamespace1"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	spec := createTestJobSpec()
@@ -32,21 +34,25 @@ func TestK8sHandlerComposeJob(t *testing.T) {
 }
 
 func TestK8sHandlerComposePVC(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace0")
+	namespace := "testnamespace2"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
-	spec := createTestPVCSpec()
-	fmt.Println(spec)
-	yaml, err := handler.ComposePVCYAML(spec)
+	pvcSpec := createTestPVCSpec()
+	yaml, err := handler.ComposePVCYAML(pvcSpec)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
 }
 
 func TestK8sHandlerCreateJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job29921")
+	namespace := "testnamespace3"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	spec := createTestJobSpec()
@@ -72,10 +78,14 @@ func TestK8sHandlerCreateJob(t *testing.T) {
 }
 
 func TestK8sHandlerDeleteJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-jobdel1")
+	namespace := "testnamespace4"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	spec := createTestJobSpec()
@@ -104,10 +114,14 @@ func TestK8sHandlerDeleteJob(t *testing.T) {
 }
 
 func TestK8sHandlerGetLogsInvalidContainer(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-invalidlog8")
+	namespace := "testnamespace5"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	spec := createTestJobSpec()
@@ -131,10 +145,14 @@ func TestK8sHandlerGetLogsInvalidContainer(t *testing.T) {
 }
 
 func TestK8sHandlerNamespace(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace1")
+	namespace := "testnamespace6"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	namespaceNames, err := handler.GetNamespaces()
@@ -142,7 +160,7 @@ func TestK8sHandlerNamespace(t *testing.T) {
 
 	found := false
 	for _, namespaceName := range namespaceNames {
-		if namespaceName == "testnamespace1" {
+		if namespaceName == "testnamespace6" {
 			found = true
 		}
 	}
@@ -157,10 +175,14 @@ func TestK8sHandlerDeploymentNames(t *testing.T) {
 	spec := createTestDeploymentSpec()
 	spec.DeploymentName = "executor-deployment"
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace2")
+	namespace := "testnamespace7"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -184,10 +206,14 @@ func TestK8sHandlerDeploymentNames(t *testing.T) {
 func TestK8sHandlerGetPodNames(t *testing.T) {
 	spec := createTestDeploymentSpec()
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace3")
+	namespace := "testnamespace8"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -209,10 +235,14 @@ func TestK8sHandlerGetPodNames(t *testing.T) {
 func TestK8sHandlerGetContainerNames(t *testing.T) {
 	spec := createTestDeploymentSpec()
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace4")
+	namespace := "testnamespace9"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -240,10 +270,14 @@ func TestK8sHandlerGetContainerOutput(t *testing.T) {
 	spec := createTestDeploymentSpec()
 	spec.NumberOfPods = 1
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace5")
+	namespace := "testnamespace10"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -276,10 +310,14 @@ func TestK8sHandlerRestartContainer(t *testing.T) {
 	spec := createTestDeploymentSpec()
 	spec.NumberOfPods = 1
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace6")
+	namespace := "testnamespace11"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -309,10 +347,14 @@ func TestK8sHandlerScale(t *testing.T) {
 	spec.DeploymentName = "executor-deployment"
 	spec.NumberOfPods = 1
 
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace7")
+	namespace := "testnamespace12"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	deploymentYAML, err := handler.ComposeDeploymentYAML(spec, DeploymentName)
@@ -339,10 +381,14 @@ func TestK8sHandlerScale(t *testing.T) {
 }
 
 func TestK8sHandlerDockerReg(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace8")
+	namespace := "testnamespace13"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	username := "user"
@@ -358,10 +404,14 @@ func TestK8sHandlerDockerReg(t *testing.T) {
 }
 
 func TestK8sHandlerDeleteDeployment(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace9")
+	namespace := "testnamespace14"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	spec := createTestDeploymentSpec()
@@ -393,10 +443,14 @@ func TestK8sHandlerDeleteDeployment(t *testing.T) {
 }
 
 func TestK8sHandlerCreatePVC(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job29921")
+	namespace := "testnamespace15"
+	handler, err := CreateK8sHandler("testexecutor", namespace, namespace+"kubeexecutor-pvc")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	err = handler.SetupPVC("longhorn", "1Gi")
 	assert.Nil(t, err)
 
 	spec := createTestPVCSpec()
@@ -405,8 +459,16 @@ func TestK8sHandlerCreatePVC(t *testing.T) {
 	assert.Nil(t, err)
 	fmt.Println(yaml)
 
+	pvcExists, err := handler.DoesPVCExist(spec.PVCName)
+	assert.Nil(t, err)
+	assert.False(t, pvcExists)
+
 	err = handler.CreatePVC(yaml)
 	assert.Nil(t, err)
+
+	pvcExists, err = handler.DoesPVCExist(spec.PVCName)
+	assert.Nil(t, err)
+	assert.True(t, pvcExists)
 
 	err = handler.DeleteNamespace()
 	assert.Nil(t, err)

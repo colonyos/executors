@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -15,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	v1c "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,6 +39,7 @@ type K8sHandler struct {
 	clientset    *kubernetes.Clientset
 	namespace    string
 	executorName string
+	pvcName      string
 }
 
 type ContainerSpec struct {
@@ -47,10 +48,11 @@ type ContainerSpec struct {
 	ContainerImage string
 }
 
-func CreateK8sHandler(executorName string, namespace string) (*K8sHandler, error) {
+func CreateK8sHandler(executorName string, namespace string, pvcName string) (*K8sHandler, error) {
 	handler := &K8sHandler{}
-	handler.namespace = namespace
 	handler.executorName = executorName
+	handler.namespace = namespace
+	handler.pvcName = pvcName
 
 	var err error
 	handler.client, handler.clientset, err = handler.setupK8sClient()
@@ -102,6 +104,33 @@ func (handler K8sHandler) CreateNamespace() error {
 
 	_, err := handler.clientset.CoreV1().Namespaces().Create(context.Background(), nsSpec, metav1.CreateOptions{})
 	return err
+}
+
+func (handler K8sHandler) SetupPVC(storageClass string, diskSize string) error {
+	pvcExists, err := handler.DoesPVCExist(handler.pvcName)
+	if err != nil {
+		return err
+	}
+
+	if !pvcExists {
+		spec := &PVCSpec{
+			PVCName:      handler.pvcName,
+			StorageClass: storageClass,
+			DiskSize:     diskSize,
+		}
+
+		yaml, err := handler.ComposePVCYAML(spec)
+		if err != nil {
+			return err
+		}
+
+		err = handler.CreatePVC(yaml)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (handler K8sHandler) GetNamespaces() ([]string, error) {
@@ -164,7 +193,7 @@ func (handler K8sHandler) ComposeDeploymentYAML(spec DeploymentSpec, deploymentN
 	return buffer.String(), nil
 }
 
-func (handler K8sHandler) ComposePVCYAML(spec PVCSpec) (string, error) {
+func (handler K8sHandler) ComposePVCYAML(spec *PVCSpec) (string, error) {
 	fmap := template.FuncMap{
 		"Iterate": func(count int) []uint {
 			var i uint
@@ -196,6 +225,8 @@ func CreateUniqueJobName(baseName string) string {
 }
 
 func (handler *K8sHandler) ComposeJobYAML(spec *JobSpec) (string, error) {
+	spec.PVCName = handler.pvcName
+
 	fmap := template.FuncMap{
 		"Iterate": func(count int) []uint {
 			var i uint
@@ -331,10 +362,9 @@ func (handler *K8sHandler) WaitForPods(jobName string, numberOfPods int) ([]stri
 func (handler K8sHandler) CreatePVC(pvcYAML string) error {
 	decUnstructured := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	obj := &unstructured.Unstructured{}
-
 	_, _, err := decUnstructured.Decode([]byte(pvcYAML), nil, obj)
 	if err != nil {
-		log.Fatalf("Could not decode YAML: %v", err)
+		return err
 	}
 
 	pvcClient := handler.clientset.CoreV1().PersistentVolumeClaims(handler.namespace)
@@ -342,17 +372,30 @@ func (handler K8sHandler) CreatePVC(pvcYAML string) error {
 	var pvc = new(corev1.PersistentVolumeClaim)
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pvc)
 	if err != nil {
-		log.Fatalf("Could not convert unstructured object: %v", err)
+		return err
 	}
 
-	resultPVC, err := pvcClient.Create(context.TODO(), pvc, metav1.CreateOptions{})
+	_, err = pvcClient.Create(context.TODO(), pvc, metav1.CreateOptions{})
 	if err != nil {
-		log.Fatalf("Could not create PVC: %v", err)
+		return err
 	}
-
-	fmt.Printf("Created PVC %q.\n", resultPVC.GetObjectMeta().GetName())
 
 	return nil
+}
+
+func (handler *K8sHandler) DoesPVCExist(pvcName string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	_, err := handler.clientset.CoreV1().PersistentVolumeClaims(handler.namespace).Get(ctx, pvcName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil // PVC does not exist
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (handler K8sHandler) CreateJob(jobYAML string, jobSpec *JobSpec) ([]string, error) {
@@ -740,6 +783,34 @@ func (handler *K8sHandler) PrintLogs(podName string, containerName string, follo
 }
 
 func (handler *K8sHandler) GetLog(podName string, containerName string, follow bool) (*Log, error) {
+	podNames, err := handler.GetPodNames()
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, p := range podNames {
+		if podName == p {
+			found = true
+		}
+	}
+	if !found {
+		return nil, errors.New("Pod with name " + podName + " does not exists")
+	}
+
+	containerNames, err := handler.GetContainerNames(podName)
+	if err != nil {
+		return nil, err
+	}
+	found = false
+	for _, c := range containerNames {
+		if containerName == c {
+			found = true
+		}
+	}
+	if !found {
+		return nil, errors.New("Container with name " + podName + " does not exists in pod " + podName)
+	}
+
 	log := &Log{MsgChan: make(chan string, 100), EofChan: make(chan bool, 100), ErrChan: make(chan error, 100)}
 	count := int64(100)
 	podLogOptions := v1c.PodLogOptions{

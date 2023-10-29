@@ -14,7 +14,6 @@ import (
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&LogDir, "logdir", "", "", "Log directory")
 }
 
 var startCmd = &cobra.Command{
@@ -37,7 +36,6 @@ var startCmd = &cobra.Command{
 			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorID(ExecutorID),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
-			executor.WithLogdir(LogDir),
 			executor.WithFsDir(FsDir),
 			executor.WithSoftwareName(SWName),
 			executor.WithSoftwareType(SWType),
@@ -55,6 +53,9 @@ var startCmd = &cobra.Command{
 			executor.WithLat(Lat),
 			executor.WithLocDesc(LocDesc),
 			executor.WithExecutorType(ExecutorType),
+			executor.WithK8sName(K8sName),
+			executor.WithK8sNamespace(K8sNamespace),
+			executor.WithK8sPVC(K8sPVC),
 		)
 		CheckError(err)
 
@@ -160,6 +161,10 @@ func parseEnv() {
 		ExecutorPrvKey, err = keychain.GetPrvKey(ExecutorID)
 		CheckError(err)
 	}
+
+	K8sName = os.Getenv("EXECUTOR_K8S_NAME")
+	K8sNamespace = os.Getenv("EXECUTOR_K8S_NAMESPACE")
+	K8sPVC = os.Getenv("EXECUTOR_K8S_PVC")
 }
 
 func CheckError(err error) {

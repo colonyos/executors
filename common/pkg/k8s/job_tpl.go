@@ -25,11 +25,17 @@ spec:
         {{- $memory := (.Memory) }}
         {{- $useGPU := (.UseGPU) }}
         {{- $gpuCount := (.GPUCount) }}
+        {{- $pvcName := (.PVCName) }}
+        {{- $mountPath := (.MountPath) }}
 		{{- range $val := Iterate .ContainersPerPod }}
       - name: {{ $jobContainerName }}-{{$val}}   
         image: {{ $jobContainerImage }}
-        command: ["sh", "-c", "{{ $execCmd }} {{ $argsStr }}"]
+        {{- if $mountPath }}
+        volumeMounts:
+          - name: kube-executor-volume
+            mountPath: {{ $mountPath }}
         {{- end }}
+        command: ["sh", "-c", "{{ $execCmd }} {{ $argsStr }}"]
         resources:
           requests:
             memory: "{{ $memory }}"
@@ -39,6 +45,13 @@ spec:
             {{- if $useGPU }}
               nvidia.com/gpu: "{{ $gpuCount }}"
             {{- end }}
+        {{- end }}
       restartPolicy: Never
+      {{- if $mountPath }}
+      volumes:
+        - name: kube-executor-volume 
+          persistentVolumeClaim:
+            claimName: {{ $pvcName }}
+      {{- end }}
   backoffLimit: 4
 `

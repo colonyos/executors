@@ -35,16 +35,18 @@ func createTestJobSpec() JobSpec {
 		UseGPU:            false,
 		GPUCount:          1,
 		GPUName:           "nvidia-gtx-2080ti",
+		PVCName:           "",
+		MountPath:         "/cfs",
 	}
 
 	return spec
 }
 
-func createTestPVCSpec() PVCSpec {
-	spec := PVCSpec{
+func createTestPVCSpec() *PVCSpec {
+	spec := &PVCSpec{
 		PVCName:      "kube-executor-pvc",
 		StorageClass: "longhorn",
-		DiskSize:     "5Gi",
+		DiskSize:     "1Gi",
 	}
 
 	return spec

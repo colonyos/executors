@@ -22,7 +22,6 @@ var ExecutorName string
 var ExecutorID string
 var ExecutorType string
 var ExecutorPrvKey string
-var LogDir string
 var FsDir string
 var SWName string
 var SWType string
@@ -39,6 +38,9 @@ var HWGPUMem string
 var LocDesc string
 var Lat float64
 var Long float64
+var K8sName string
+var K8sNamespace string
+var K8sPVC string
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")

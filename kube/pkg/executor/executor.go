@@ -30,7 +30,6 @@ type Executor struct {
 	executorID         string
 	executorPrvKey     string
 	executorType       string
-	logDir             string
 	fsDir              string
 	swName             string
 	swType             string
@@ -56,6 +55,8 @@ type Executor struct {
 	failureHandler     *failure.FailureHandler
 	debugHandler       *debug.DebugHandler
 	k8sHandler         *k8s.K8sHandler
+	namespace          string
+	pvc                string
 }
 
 type ExecutorOption func(*Executor)
@@ -111,12 +112,6 @@ func WithExecutorID(id string) ExecutorOption {
 func WithExecutorPrvKey(key string) ExecutorOption {
 	return func(e *Executor) {
 		e.executorPrvKey = key
-	}
-}
-
-func WithLogdir(logDir string) ExecutorOption {
-	return func(e *Executor) {
-		e.logDir = logDir
 	}
 }
 
@@ -216,6 +211,24 @@ func WithLocDesc(locDesc string) ExecutorOption {
 	}
 }
 
+func WithK8sNamespace(namespace string) ExecutorOption {
+	return func(e *Executor) {
+		e.namespace = namespace
+	}
+}
+
+func WithK8sPVC(pvc string) ExecutorOption {
+	return func(e *Executor) {
+		e.pvc = pvc
+	}
+}
+
+func WithK8sName(k8sName string) ExecutorOption {
+	return func(e *Executor) {
+		e.k8sName = k8sName
+	}
+}
+
 func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
@@ -306,10 +319,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.k8sName = "kubeexecutor"
-	e.k8sNamespace = "kubeexecutor"
-
-	e.k8sHandler, err = k8s.CreateK8sHandler(e.k8sName, e.k8sNamespace)
+	e.k8sHandler, err = k8s.CreateK8sHandler(e.k8sName, e.namespace, e.pvc)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +329,9 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"ColoniesServerHost":    e.coloniesServerHost,
 		"ColoniesServerPort":    e.coloniesServerPort,
 		"ColoniesInsecure":      e.coloniesInsecure,
-		"LogDir":                e.logDir,
+		"K8sName":               e.k8sName,
+		"K8sPVC":                e.pvc,
+		"K8sNamespace":          e.namespace,
 		"FsDir":                 e.fsDir,
 		"ColonyId":              e.colonyID,
 		"ColonyPrvKey":          "***********************",
