@@ -6,18 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"text/template"
 	"time"
 
+	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	v1c "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
@@ -30,13 +32,13 @@ import (
 const Namespace = "colonies"
 const DeploymentName = "executor-deployment"
 const JobName = "executorjob"
+const timeout = 30 * time.Second
 
 type K8sHandler struct {
 	client       dynamic.Interface
 	clientset    *kubernetes.Clientset
 	namespace    string
 	executorName string
-	jobCounter   int
 }
 
 type ContainerSpec struct {
@@ -49,7 +51,6 @@ func CreateK8sHandler(executorName string, namespace string) (*K8sHandler, error
 	handler := &K8sHandler{}
 	handler.namespace = namespace
 	handler.executorName = executorName
-	handler.jobCounter = 0
 
 	var err error
 	handler.client, handler.clientset, err = handler.setupK8sClient()
@@ -106,7 +107,10 @@ func (handler K8sHandler) CreateNamespace() error {
 func (handler K8sHandler) GetNamespaces() ([]string, error) {
 	nsInterface := handler.clientset.CoreV1().Namespaces()
 
-	ns, err := nsInterface.List(context.TODO(), v1.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ns, err := nsInterface.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +124,10 @@ func (handler K8sHandler) GetNamespaces() ([]string, error) {
 }
 
 func (handler K8sHandler) DeleteNamespace() error {
-	err := handler.clientset.CoreV1().Namespaces().Delete(context.TODO(), handler.namespace, metav1.DeleteOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := handler.clientset.CoreV1().Namespaces().Delete(ctx, handler.namespace, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -157,7 +164,7 @@ func (handler K8sHandler) ComposeDeploymentYAML(spec DeploymentSpec, deploymentN
 	return buffer.String(), nil
 }
 
-func (handler K8sHandler) ComposeJobYAML(spec JobSpec) (string, string, error) {
+func (handler K8sHandler) ComposePVCYAML(spec PVCSpec) (string, error) {
 	fmap := template.FuncMap{
 		"Iterate": func(count int) []uint {
 			var i uint
@@ -169,23 +176,52 @@ func (handler K8sHandler) ComposeJobYAML(spec JobSpec) (string, string, error) {
 		},
 	}
 
-	spec.JobName = handler.executorName + "-" + JobName + "-" + strconv.Itoa(handler.jobCounter)
-	spec.JobContainerName = handler.executorName + "-" + JobName + "-" + strconv.Itoa(handler.jobCounter) + "-" + "container"
-	handler.jobCounter++
-	spec.Namespace = handler.namespace
-
-	t, err := template.New("spec").Funcs(fmap).Parse(jobTemplate)
+	t, err := template.New("spec").Funcs(fmap).Parse(pvcTemplate)
 	if err != nil {
-		return "", spec.JobName, err
+		return "", err
 	}
 
 	var buffer bytes.Buffer
 	err = t.Execute(&buffer, spec)
 	if err != nil {
-		return "", spec.JobName, err
+		return "", err
 	}
 
-	return buffer.String(), spec.JobName, nil
+	return buffer.String(), nil
+}
+
+func CreateUniqueJobName(baseName string) string {
+	uniqueID := uuid.New()
+	return fmt.Sprintf("%s-%s", baseName, uniqueID.String())
+}
+
+func (handler *K8sHandler) ComposeJobYAML(spec *JobSpec) (string, error) {
+	fmap := template.FuncMap{
+		"Iterate": func(count int) []uint {
+			var i uint
+			var Items []uint
+			for i = 0; i < (uint(count)); i++ {
+				Items = append(Items, i)
+			}
+			return Items
+		},
+	}
+
+	spec.JobContainerName = JobName + "-" + "container"
+	spec.Namespace = handler.namespace
+
+	t, err := template.New("spec").Funcs(fmap).Parse(jobTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	var buffer bytes.Buffer
+	err = t.Execute(&buffer, spec)
+	if err != nil {
+		return "", err
+	}
+
+	return buffer.String(), nil
 }
 
 func (handler K8sHandler) CreateDockerRegistrySecret(dockerSecret *DockerRegistrySecret) error {
@@ -220,7 +256,11 @@ func (handler K8sHandler) CreateDeployment(deploymentYAML string) error {
 	}
 
 	resource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	_, err = handler.client.Resource(resource).Namespace(handler.namespace).Create(context.TODO(), deployment, metav1.CreateOptions{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	_, err = handler.client.Resource(resource).Namespace(handler.namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -228,45 +268,38 @@ func (handler K8sHandler) CreateDeployment(deploymentYAML string) error {
 	return nil
 }
 
-func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *JobSpec) ([]string, error) {
-	job := &unstructured.Unstructured{}
-	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	_, _, err := dec.Decode([]byte(jobYAML), nil, job)
-	if err != nil {
-		return nil, err
+func (handler *K8sHandler) WaitForPods(jobName string, numberOfPods int) ([]string, error) {
+	labelSelector := metav1.ListOptions{
+		LabelSelector: labels.Set{"job-name": jobName}.AsSelector().String(),
 	}
 
-	resource := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
-	_, err = handler.client.Resource(resource).Namespace(handler.namespace).Create(context.TODO(), job, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
+	if jobName == "" {
+		return nil, errors.New("jobName must be provided")
 	}
 
-	// Block until all Pods has been created
 	maxRetries := 600
 	retries := 0
 	var podNames []string
 	for {
-		if retries == maxRetries {
-			return nil, errors.New("Pods failed to start")
+		if retries >= maxRetries {
+			return nil, errors.New("Failed to create job pods")
 		}
-		podNames, err = handler.GetPodNames()
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		pods, err := handler.clientset.CoreV1().Pods(handler.namespace).List(ctx, labelSelector)
 		if err != nil {
 			return nil, err
 		}
-		if len(podNames) != jobSpec.Parallelism {
+		if len(pods.Items) == numberOfPods {
+			for _, pod := range pods.Items {
+				podNames = append(podNames, pod.GetName())
+			}
+			break
+		} else {
 			time.Sleep(1 * time.Second)
 			retries++
-			continue
-		} else {
-			break
-		}
-	}
-
-	var jobPodNames []string
-	for _, podName := range podNames {
-		if strings.HasPrefix(podName, jobName) {
-			jobPodNames = append(jobPodNames, podName)
 		}
 	}
 
@@ -276,8 +309,8 @@ func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *Job
 		if retries == maxRetries {
 			return nil, errors.New("Pods failed to start")
 		}
-		for _, jobPodName := range jobPodNames {
-			hasStarted, err := handler.HasPodStarted(jobPodName)
+		for _, podName := range podNames {
+			hasStarted, err := handler.HasPodStarted(podName)
 			if err != nil {
 				return nil, err
 			}
@@ -285,12 +318,61 @@ func (handler K8sHandler) CreateJob(jobYAML string, jobName string, jobSpec *Job
 				podCounter++
 			}
 		}
-		if podCounter == jobSpec.Parallelism {
+		if podCounter == numberOfPods {
 			break
+		} else {
+			time.Sleep(1 * time.Second)
 		}
 	}
 
-	return jobPodNames, nil
+	return podNames, nil
+}
+
+func (handler K8sHandler) CreatePVC(pvcYAML string) error {
+	decUnstructured := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+
+	_, _, err := decUnstructured.Decode([]byte(pvcYAML), nil, obj)
+	if err != nil {
+		log.Fatalf("Could not decode YAML: %v", err)
+	}
+
+	pvcClient := handler.clientset.CoreV1().PersistentVolumeClaims(handler.namespace)
+
+	var pvc = new(corev1.PersistentVolumeClaim)
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pvc)
+	if err != nil {
+		log.Fatalf("Could not convert unstructured object: %v", err)
+	}
+
+	resultPVC, err := pvcClient.Create(context.TODO(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		log.Fatalf("Could not create PVC: %v", err)
+	}
+
+	fmt.Printf("Created PVC %q.\n", resultPVC.GetObjectMeta().GetName())
+
+	return nil
+}
+
+func (handler K8sHandler) CreateJob(jobYAML string, jobSpec *JobSpec) ([]string, error) {
+	job := &unstructured.Unstructured{}
+	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	_, _, err := dec.Decode([]byte(jobYAML), nil, job)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	resource := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
+	_, err = handler.client.Resource(resource).Namespace(handler.namespace).Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return handler.WaitForPods(jobSpec.JobName, jobSpec.Parallelism)
 }
 
 func (handler *K8sHandler) DeleteDeployment(deploymentName string) error {
@@ -299,7 +381,10 @@ func (handler *K8sHandler) DeleteDeployment(deploymentName string) error {
 		return errors.New("failed to delete deployment")
 	}
 
-	err := client.Delete(context.TODO(), deploymentName, metav1.DeleteOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := client.Delete(ctx, deploymentName, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -311,8 +396,11 @@ func (handler K8sHandler) GetDeploymentNames() ([]string, error) {
 	var names []string
 	listOptions := metav1.ListOptions{}
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	resource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	deployments, err := handler.client.Resource(resource).Namespace(handler.namespace).List(context.TODO(), listOptions)
+	deployments, err := handler.client.Resource(resource).Namespace(handler.namespace).List(ctx, listOptions)
 	if err != nil {
 		return names, err
 	}
@@ -331,7 +419,11 @@ func (handler K8sHandler) GetJobNames() ([]string, error) {
 	listOptions := metav1.ListOptions{}
 
 	resource := schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
-	deployments, err := handler.client.Resource(resource).Namespace(handler.namespace).List(context.TODO(), listOptions)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	deployments, err := handler.client.Resource(resource).Namespace(handler.namespace).List(ctx, listOptions)
 	if err != nil {
 		return names, err
 	}
@@ -346,8 +438,11 @@ func (handler K8sHandler) GetJobNames() ([]string, error) {
 }
 
 func (handler *K8sHandler) GetPodNames() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	podInterface := handler.clientset.CoreV1().Pods(handler.namespace)
-	pods, err := podInterface.List(context.TODO(), v1.ListOptions{})
+	pods, err := podInterface.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -360,8 +455,38 @@ func (handler *K8sHandler) GetPodNames() ([]string, error) {
 	return podNames, nil
 }
 
+func (handler *K8sHandler) DeleteJob(jobName string) error {
+	labelSelector := metav1.ListOptions{
+		LabelSelector: labels.Set{"job-name": jobName}.AsSelector().String(), // this assumes your Pods are labeled with the name of the Job
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := handler.clientset.CoreV1().Pods(handler.namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, labelSelector); err != nil {
+		return err
+	}
+
+	propagationPolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), timeout)
+	defer cancel2()
+
+	if err := handler.clientset.BatchV1().Jobs(handler.namespace).Delete(ctx2, jobName, deleteOptions); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (handler *K8sHandler) GetContainerNames(podName string) ([]string, error) {
-	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +500,10 @@ func (handler *K8sHandler) GetContainerNames(podName string) ([]string, error) {
 }
 
 func (handler *K8sHandler) RestartPod(podName string) error {
-	err := handler.clientset.CoreV1().Pods(handler.namespace).Delete(context.TODO(), podName, metav1.DeleteOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := handler.clientset.CoreV1().Pods(handler.namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
@@ -384,9 +512,11 @@ func (handler *K8sHandler) RestartPod(podName string) error {
 }
 
 func (handler *K8sHandler) GetScale(deploymentName string) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	s, err := handler.clientset.AppsV1().
 		Deployments(handler.namespace).
-		GetScale(context.TODO(), deploymentName, metav1.GetOptions{})
+		GetScale(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return -1, err
 	}
@@ -395,9 +525,12 @@ func (handler *K8sHandler) GetScale(deploymentName string) (int, error) {
 }
 
 func (handler *K8sHandler) SetScale(replicas int, deploymentName string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	s, err := handler.clientset.AppsV1().
 		Deployments(handler.namespace).
-		GetScale(context.TODO(), deploymentName, metav1.GetOptions{})
+		GetScale(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -405,9 +538,12 @@ func (handler *K8sHandler) SetScale(replicas int, deploymentName string) error {
 	sc := *s
 	sc.Spec.Replicas = int32(replicas)
 
+	ctx2, cancel2 := context.WithTimeout(context.Background(), timeout)
+	defer cancel2()
+
 	_, err = handler.clientset.AppsV1().
 		Deployments(handler.namespace).
-		UpdateScale(context.TODO(),
+		UpdateScale(ctx2,
 			deploymentName, &sc, metav1.UpdateOptions{})
 	if err != nil {
 		return err
@@ -418,7 +554,9 @@ func (handler *K8sHandler) SetScale(replicas int, deploymentName string) error {
 
 func (handler *K8sHandler) WaitForPod(podName string, containerName string) error {
 	for {
-		pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -432,7 +570,10 @@ func (handler *K8sHandler) WaitForPod(podName string, containerName string) erro
 }
 
 func (handler *K8sHandler) HasPodFinished(podName string) (bool, error) {
-	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -445,7 +586,10 @@ func (handler *K8sHandler) HasPodFinished(podName string) (bool, error) {
 }
 
 func (handler *K8sHandler) HasPodStarted(podName string) (bool, error) {
-	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -467,7 +611,10 @@ func (handler *K8sHandler) HasPodStarted(podName string) (bool, error) {
 }
 
 func (handler *K8sHandler) HasContainerFinished(podName string, containerName string) (bool, error) {
-	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	pod, err := handler.clientset.CoreV1().Pods(handler.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -495,38 +642,78 @@ type Log struct {
 	ErrChan chan error
 }
 
-func (handler *K8sHandler) PrintAllLogs(podName string, follow bool) error {
-	containerNames, err := handler.GetContainerNames(podName)
-	if err != nil {
-		return err
-	}
-
-outerloop:
-	for _, containerName := range containerNames {
-		log, err := handler.GetLog(podName, containerName, follow)
+func (handler *K8sHandler) HandleContainerLog(podName string, containerName string, aggregatedLogsChan chan string, eofChan chan bool, errChan chan error) {
+	go func() {
+		log, err := handler.GetLog(podName, containerName, true)
 		if err != nil {
-			return err
+			errChan <- err
+			return
 		}
 
-	innerloop:
 		for {
 			select {
 			case msg := <-log.MsgChan:
-				fmt.Println(msg)
+				aggregatedLogsChan <- msg
 			case err := <-log.ErrChan:
-				fmt.Println(err)
-				break outerloop
+				errChan <- err
+				return
 			case <-log.EofChan:
 				if len(log.MsgChan) > 0 {
 					msg := <-log.MsgChan
-					fmt.Println(msg)
+					aggregatedLogsChan <- msg
 				}
-				break innerloop
+				eofChan <- true
+				return
+			}
+		}
+	}()
+}
+
+func (handler *K8sHandler) HandlePodLog(podName string, aggregatedLogsChan chan string, eofChan chan bool, errChan chan error) {
+	func() {
+		containernames, err := handler.GetContainerNames(podName)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		for _, containername := range containernames {
+			handler.HandleContainerLog(podName, containername, aggregatedLogsChan, eofChan, errChan)
+		}
+	}()
+}
+
+func (handler *K8sHandler) HandleJobLog(podNames []string, aggregatedLogsChan chan string, eofChan chan bool, errChan chan error) {
+	func() {
+		for _, podName := range podNames {
+			handler.HandlePodLog(podName, aggregatedLogsChan, eofChan, errChan)
+		}
+	}()
+}
+
+func (handler *K8sHandler) PrintJobLogs(podNames []string, containers int) error {
+	aggregatedLogsChan := make(chan string)
+	eofChan := make(chan bool)
+	errChan := make(chan error)
+	handler.HandleJobLog(podNames, aggregatedLogsChan, eofChan, errChan)
+
+	fmt.Println("podsnames:", podNames)
+	fmt.Println("containers:", containers)
+
+	eofCounter := 0
+	for {
+		select {
+		case msg := <-aggregatedLogsChan:
+			fmt.Println(msg)
+		case err := <-errChan:
+			return err
+		case <-eofChan:
+			eofCounter++
+			if eofCounter == len(podNames)*containers {
+				return nil
 			}
 		}
 	}
-
-	return nil
 }
 
 func (handler *K8sHandler) PrintLogs(podName string, containerName string, follow bool) error {
@@ -561,34 +748,6 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 		TailLines: &count,
 	}
 
-	podNames, err := handler.GetPodNames()
-	if err != nil {
-		return nil, err
-	}
-	found := false
-	for _, p := range podNames {
-		if podName == p {
-			found = true
-		}
-	}
-	if !found {
-		return nil, errors.New("Pod with name " + podName + " does not exists")
-	}
-
-	containerNames, err := handler.GetContainerNames(podName)
-	if err != nil {
-		return nil, err
-	}
-	found = false
-	for _, c := range containerNames {
-		if containerName == c {
-			found = true
-		}
-	}
-	if !found {
-		return nil, errors.New("Container with name " + podName + " does not exists in pod " + podName)
-	}
-
 	podLogRequest := handler.clientset.CoreV1().Pods(handler.namespace).GetLogs(podName, &podLogOptions)
 
 	func() {
@@ -597,7 +756,10 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 		retries := 0
 		maxRetries := 600 // Wait max 600s for a Pod to start
 		for {
-			stream, err = podLogRequest.Stream(context.TODO())
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			stream, err = podLogRequest.Stream(ctx)
 			if err != nil {
 				if retries == maxRetries {
 					log.ErrChan <- errors.New("Exceeded maxRetries: " + err.Error())
@@ -654,7 +816,10 @@ func (handler *K8sHandler) GetStdOut(podName string, containerName string) (stri
 
 	podLogRequest := handler.clientset.CoreV1().Pods(handler.namespace).GetLogs(podName, &podLogOptions)
 
-	stream, err := podLogRequest.Stream(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stream, err := podLogRequest.Stream(ctx)
 	if err != nil {
 		return "", err
 	}

@@ -24,6 +24,7 @@ func createTestDeploymentSpec() DeploymentSpec {
 
 func createTestJobSpec() JobSpec {
 	spec := JobSpec{
+		JobName:           CreateUniqueJobName("test"),
 		JobContainerImage: "busybox",
 		ExecCmd:           "echo",
 		ArgsStr:           "helloworld!",
@@ -34,6 +35,16 @@ func createTestJobSpec() JobSpec {
 		UseGPU:            false,
 		GPUCount:          1,
 		GPUName:           "nvidia-gtx-2080ti",
+	}
+
+	return spec
+}
+
+func createTestPVCSpec() PVCSpec {
+	spec := PVCSpec{
+		PVCName:      "kube-executor-pvc",
+		StorageClass: "longhorn",
+		DiskSize:     "5Gi",
 	}
 
 	return spec

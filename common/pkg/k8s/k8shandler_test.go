@@ -26,15 +26,24 @@ func TestK8sHandlerComposeJob(t *testing.T) {
 
 	spec := createTestJobSpec()
 	fmt.Println(spec)
-	yaml, podName, err := handler.ComposeJobYAML(spec)
-	fmt.Println(err)
+	yaml, err := handler.ComposeJobYAML(&spec)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
-	fmt.Println(podName)
+}
+
+func TestK8sHandlerComposePVC(t *testing.T) {
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace0")
+	assert.Nil(t, err)
+
+	spec := createTestPVCSpec()
+	fmt.Println(spec)
+	yaml, err := handler.ComposePVCYAML(spec)
+	assert.Nil(t, err)
+	fmt.Println(yaml)
 }
 
 func TestK8sHandlerCreateJob(t *testing.T) {
-	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job299")
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job29921")
 	assert.Nil(t, err)
 
 	err = handler.CreateNamespace()
@@ -42,24 +51,53 @@ func TestK8sHandlerCreateJob(t *testing.T) {
 
 	spec := createTestJobSpec()
 	fmt.Println(spec)
-	yaml, jobName, err := handler.ComposeJobYAML(spec)
+	yaml, err := handler.ComposeJobYAML(&spec)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
-	fmt.Println(jobName)
 
-	jobPodNames, err := handler.CreateJob(yaml, jobName, &spec)
+	jobPodNames, err := handler.CreateJob(yaml, &spec)
 	assert.Nil(t, err)
 	fmt.Println(jobPodNames)
 
 	jobNames, err := handler.GetJobNames()
 	assert.Nil(t, err)
 	assert.Len(t, jobNames, 1)
-	assert.Equal(t, jobNames[0], jobName)
+	assert.Equal(t, jobNames[0], spec.JobName)
 
-	for _, jobPodName := range jobPodNames {
-		err = handler.PrintAllLogs(jobPodName, true)
-		assert.Nil(t, err)
-	}
+	err = handler.PrintJobLogs(jobPodNames, spec.ContainersPerPod)
+	assert.Nil(t, err)
+
+	err = handler.DeleteNamespace()
+	assert.Nil(t, err)
+}
+
+func TestK8sHandlerDeleteJob(t *testing.T) {
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace-jobdel1")
+	assert.Nil(t, err)
+
+	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	spec := createTestJobSpec()
+	fmt.Println(spec)
+	yaml, err := handler.ComposeJobYAML(&spec)
+	assert.Nil(t, err)
+	fmt.Println(yaml)
+
+	jobPodNames, err := handler.CreateJob(yaml, &spec)
+	assert.Nil(t, err)
+	fmt.Println(jobPodNames)
+
+	jobNames, err := handler.GetJobNames()
+	assert.Nil(t, err)
+	assert.Len(t, jobNames, 1)
+
+	err = handler.DeleteJob(spec.JobName)
+	assert.Nil(t, err)
+
+	jobNames, err = handler.GetJobNames()
+	assert.Nil(t, err)
+	assert.Len(t, jobNames, 0)
 
 	err = handler.DeleteNamespace()
 	assert.Nil(t, err)
@@ -74,12 +112,11 @@ func TestK8sHandlerGetLogsInvalidContainer(t *testing.T) {
 
 	spec := createTestJobSpec()
 	fmt.Println(spec)
-	yaml, jobName, err := handler.ComposeJobYAML(spec)
+	yaml, err := handler.ComposeJobYAML(&spec)
 	assert.Nil(t, err)
 	fmt.Println(yaml)
-	fmt.Println(jobName)
 
-	jobPodNames, err := handler.CreateJob(yaml, jobName, &spec)
+	jobPodNames, err := handler.CreateJob(yaml, &spec)
 	assert.Nil(t, err)
 	assert.True(t, len(jobPodNames) > 1)
 
@@ -350,6 +387,26 @@ func TestK8sHandlerDeleteDeployment(t *testing.T) {
 	deploymentNames, err = handler.GetDeploymentNames()
 	assert.Nil(t, err)
 	assert.Len(t, deploymentNames, 0)
+
+	err = handler.DeleteNamespace()
+	assert.Nil(t, err)
+}
+
+func TestK8sHandlerCreatePVC(t *testing.T) {
+	handler, err := CreateK8sHandler("testexecutor", "testnamespace-job29921")
+	assert.Nil(t, err)
+
+	err = handler.CreateNamespace()
+	assert.Nil(t, err)
+
+	spec := createTestPVCSpec()
+	fmt.Println(spec)
+	yaml, err := handler.ComposePVCYAML(spec)
+	assert.Nil(t, err)
+	fmt.Println(yaml)
+
+	err = handler.CreatePVC(yaml)
+	assert.Nil(t, err)
 
 	err = handler.DeleteNamespace()
 	assert.Nil(t, err)
