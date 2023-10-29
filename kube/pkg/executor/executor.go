@@ -47,12 +47,15 @@ type Executor struct {
 	long               float64
 	lat                float64
 	locDesc            string
+	k8sName            string
+	k8sNamespace       string
 	ctx                context.Context
 	cancel             context.CancelFunc
 	client             *client.ColoniesClient
 	syncHandler        *sync.SyncHandler
 	failureHandler     *failure.FailureHandler
 	debugHandler       *debug.DebugHandler
+	k8sHandler         *k8s.K8sHandler
 }
 
 type ExecutorOption func(*Executor)
@@ -303,6 +306,14 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
+	e.k8sName = "kubeexecutor"
+	e.k8sNamespace = "kubeexecutor"
+
+	e.k8sHandler, err = k8s.CreateK8sHandler(e.k8sName, e.k8sNamespace)
+	if err != nil {
+		return nil, err
+	}
+
 	log.WithFields(log.Fields{
 		"Verbose":               e.verbose,
 		"ColoniesServerHost":    e.coloniesServerHost,
@@ -349,6 +360,34 @@ func (e *Executor) Shutdown() error {
 	return nil
 }
 
+func (e *Executor) FetchJobLogs(process *core.Process, podNames []string, containers int) error {
+	aggregatedLogsChan := make(chan string)
+	eofChan := make(chan bool)
+	errChan := make(chan error)
+	e.k8sHandler.HandleJobLog(podNames, aggregatedLogsChan, eofChan, errChan)
+
+	fmt.Println("podsnames:", podNames)
+	fmt.Println("containers:", containers)
+
+	eofCounter := 0
+	for {
+		select {
+		case msg := <-aggregatedLogsChan:
+			err := e.client.AddLog(process.ID, msg, e.executorPrvKey)
+			if err != nil {
+				return err
+			}
+		case err := <-errChan:
+			return err
+		case <-eofChan:
+			eofCounter++
+			if eofCounter == len(podNames)*containers {
+				return nil
+			}
+		}
+	}
+}
+
 func (e *Executor) executeK8s(process *core.Process) error {
 	kwArgs, err := parsers.ParseKwArgs(process, e.failureHandler, e.debugHandler)
 	if err != nil {
@@ -357,10 +396,14 @@ func (e *Executor) executeK8s(process *core.Process) error {
 
 	fmt.Println("-----------------------")
 	fmt.Println(kwArgs)
-	fmt.Println("cmd:", kwArgs.ExecCmdArr)
+	fmt.Println("cmd:", kwArgs.Cmd)
+	fmt.Println("args:", kwArgs.Args)
+	fmt.Println("execmdarr:", kwArgs.ExecCmdArr)
+	fmt.Println("image:", kwArgs.Image)
 	fmt.Println("-----------------------")
 
-	spec := k8s.JobSpec{
+	spec := &k8s.JobSpec{
+		JobName:           k8s.CreateUniqueJobName("kubexexecutor"),
 		JobContainerImage: kwArgs.Image,
 		ExecCmd:           kwArgs.Cmd,
 		ArgsStr:           kwArgs.Args,
@@ -373,7 +416,29 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		GPUName:           process.FunctionSpec.Conditions.GPU.Name,
 	}
 
-	fmt.Println(spec)
+	yaml, err := e.k8sHandler.ComposeJobYAML(spec)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to convert spec to k8s yaml")
+	}
+
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Yaml": yaml}).Info("Creating K8s batch job")
+	jobPodNames, err := e.k8sHandler.CreateJob(yaml, spec)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to create k8s job")
+	}
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batch job created")
+
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Getting logs")
+	err = e.FetchJobLogs(process, jobPodNames, spec.ContainersPerPod)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to get logs")
+	}
+
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Deleting job")
+	err = e.k8sHandler.DeleteJob(spec.JobName)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to delete job")
+	}
 
 	return nil
 }
