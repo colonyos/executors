@@ -532,7 +532,8 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		return err
 	}
 
-	// e.logInfo(process, "Generated Slurm script:\n "+script)
+	fmt.Println(script)
+	//e.logInfo(process, "Generated Slurm script:\n "+script)
 
 	if kwArgs.RebuildImage {
 		err := singularity.RemoveSif(kwArgs.Image)
