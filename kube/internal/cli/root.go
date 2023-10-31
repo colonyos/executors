@@ -41,6 +41,7 @@ var Long float64
 var K8sName string
 var K8sNamespace string
 var K8sPVC string
+var ProcessID string
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
