@@ -45,7 +45,7 @@ Colonies jobs are described as so-called function specifications. Below is an ex
 
 * The **condition** object outlines the requirements for an acceptable executor. In this case, an executor must be of the **kubeexecutor** type to be assigned this function specification. 
 
-* We specify a requirement for 2 nodes. This directly translates to the number of pods in the batch job. We also request 2 processes per node. This correlates with the number of containers within each pod. Each container is allocated 1Gi of memory and 0.5 cores.
+* We specify a requirement for 2 **nodes**. This directly translates to the number of pods in the batch job. We also request 2 **processes per node**. This correlates to number of containers within each pod. Each container is allocated 1Gi of memory and 0.5 cores. In total, we will allocate 4Gi memory and request 2 CPU cores.
 
 * The **walltime** parameter determines the maximum lifespan of the Kubernetes job. If a job exceeds this limit, it's automatically removed from the Kubernetes cluster. This mechanism ensures that batch jobs that stall or hang don't persist indefinitely. In this case, the job is deleted after 90 seconds.
 
@@ -54,4 +54,14 @@ It's hence crucial that the value of **walltime** is set greater than that of **
 
 * The **maxretries** parameter sets a limit on the number of times a process can be unassigned due to issues or failures. After reaching this limit, the process is closed as failed and will no longer be eligible for reassignment to another executor.
 
-* The **funcname** defines the name of function we would like to call on the executor. The **execute* function spawns batch jobs. Additionaly, the **kwargs** parameter represents the arguments passed to the execute function. This defines the exact process to be executed. In this particular example, we wish to run the command **echo Hello, World!** within the busybox Docker container.
+* The **funcname** defines the name of function we would like to call on the executor. The **execute** function spawns batch jobs. Additionaly, the **kwargs** parameter represents the arguments passed to the **execute** function. This defines the exact process to be executed. In this particular example, we wish to run the command **echo Hello, World!** within the busybox Docker container.
+
+### Submitting a job
+```console
+colonies function submit --spec helloworld.json 
+```
+
+![Process](docs/process.png)
+![Logs](docs/processlog.png)
+
+## Colonies filesystem 
