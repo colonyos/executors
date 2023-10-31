@@ -1,4 +1,4 @@
-package executor
+package singularity
 
 const SifTemplate = `Bootstrap: docker
 From: docker.io/{{.DockerImage}}

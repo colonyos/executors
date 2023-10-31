@@ -17,6 +17,8 @@ import (
 	"github.com/colonyos/executors/common/pkg/debug"
 	"github.com/colonyos/executors/common/pkg/failure"
 	"github.com/colonyos/executors/common/pkg/parsers"
+	"github.com/colonyos/executors/common/pkg/singularity"
+	"github.com/colonyos/executors/common/pkg/slurm"
 	"github.com/colonyos/executors/common/pkg/sync"
 	log "github.com/sirupsen/logrus"
 )
@@ -57,7 +59,7 @@ type Executor struct {
 	ctx                context.Context
 	cancel             context.CancelFunc
 	client             *client.ColoniesClient
-	slurm              *Slurm
+	slurm              *slurm.Slurm
 	gres               bool
 	syncHandler        *sync.SyncHandler
 	failureHandler     *failure.FailureHandler
@@ -330,7 +332,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
-	e.slurm = CreateSlurm(e.fsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
+	e.slurm = slurm.CreateSlurm(e.fsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
 
 	var err error
 	e.failureHandler, err = failure.CreateFailureHandler(e.executorPrvKey, e.client)
@@ -400,8 +402,8 @@ func (e *Executor) Shutdown() error {
 
 func (e *Executor) monitorSlurmForever() {
 	go func() {
-		logChan := make(chan *Log, 1000)
-		jobEndedChan := make(chan *JobEnded, 1000)
+		logChan := make(chan *slurm.Log, 1000)
+		jobEndedChan := make(chan *slurm.JobEnded, 1000)
 		log.WithFields(log.Fields{"LogDir": e.logDir}).Info("Starting Slurm monitor")
 		e.slurm.Monitor(e.logDir, logChan, jobEndedChan)
 		for {
@@ -419,7 +421,7 @@ func (e *Executor) monitorSlurmForever() {
 					e.failureHandler.HandleError(nil, err, "Failed to get process, process is nil, processID="+jobEnded.ProcessID)
 					continue
 				}
-				if jobEnded.JobStatus == COMPLETED || jobEnded.JobStatus == COMPLETING {
+				if jobEnded.JobStatus == slurm.COMPLETED || jobEnded.JobStatus == slurm.COMPLETING {
 					if process.FunctionSpec.Filesystem.Mount != "" {
 						for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
 							if !snapshotMount.KeepSnaphot {
@@ -509,7 +511,7 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		containerMount = DEFAULT_CONTAINER_MOUNT
 	}
 
-	singularity := CreateSingularity(e.imageDir)
+	singularity := singularity.CreateSingularity(e.imageDir)
 	script, err := e.slurm.GenerateSlurmScript(process.FunctionSpec.Conditions.Nodes,
 		process.FunctionSpec.Conditions.ProcessesPerNode,
 		int(process.FunctionSpec.Conditions.WallTime),

@@ -1,4 +1,4 @@
-package executor
+package slurm
 
 import (
 	"bytes"

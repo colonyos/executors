@@ -1,7 +1,6 @@
-package executor
+package slurm
 
 const SlurmBatchTemplate = `#!/bin/bash
-
 
 #SBATCH --job-name={{.JobName}}
 {{- if .Partition}}
