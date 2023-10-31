@@ -450,15 +450,24 @@ func (e *Executor) executeK8s(process *core.Process) error {
 
 	fmt.Println(yaml)
 
-	log.WithFields(log.Fields{"JobName": spec.JobName}).Info("Creating K8s batch job")
+	log.WithFields(log.Fields{"JobName": spec.JobName}).Info("Creating K8s batchjob")
 	jobPodNames, err := e.k8sHandler.CreateJob(yaml, spec)
 	if err != nil {
-		e.failureHandler.HandleError(process, err, "Failed to create k8s job")
+		e.failureHandler.HandleError(process, err, "Failed to create k8s batchjob")
 		return err
 	}
-	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batch job created")
 
-	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Getting logs")
+	defer func() {
+		log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Deleting job")
+		err = e.k8sHandler.DeleteJob(spec.JobName)
+		if err != nil {
+			e.failureHandler.HandleError(process, err, "Failed to delete job")
+		}
+	}()
+
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batchjob created")
+
+	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Monitoring K8s batchjob lifecycle, and getting logs")
 	err = e.FetchJobLogs(process, jobPodNames, spec.ContainersPerPod)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to get logs")
@@ -517,14 +526,6 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		e.debugHandler.LogInfo(process, "Ignoring syncing dirs as mount not definied")
 	}
 
-	// TODO: make defer deletejob
-	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Deleting job")
-	err = e.k8sHandler.DeleteJob(spec.JobName)
-	if err != nil {
-		e.failureHandler.HandleError(process, err, "Failed to delete job")
-		return err
-	}
-
 	return nil
 }
 
@@ -549,7 +550,6 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			fmt.Println("Exec process")
 			err = e.executeK8s(process)
 			if err != nil {
 				e.failureHandler.HandleError(process, err, "Failed to execute K8s")
