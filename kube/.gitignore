@@ -1,2 +1,2 @@
-./bin
-./bin/kube_executor
+bin
+bin/kube_executor
