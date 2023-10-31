@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -406,19 +408,31 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		return err
 	}
 
-	fmt.Println("-----------------------")
-	fmt.Println(kwArgs)
-	fmt.Println("cmd:", kwArgs.Cmd)
-	fmt.Println("args:", kwArgs.Args)
-	fmt.Println("execmdarr:", kwArgs.ExecCmdArr)
-	fmt.Println("image:", kwArgs.Image)
-	fmt.Println("-----------------------")
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		err := e.syncHandler.DownloadSnapshots(process)
+		if err != nil {
+			e.failureHandler.HandleError(process, err, "Failed to download snapshots")
+			return err
+		}
+		onProcessStart := true
+		err = e.syncHandler.Sync(process, onProcessStart)
+		if err != nil {
+			e.failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+			return err
+		}
+	} else {
+		e.debugHandler.LogInfo(process, "Ignoring downloading snapshots and syncing dirs as mount not definied")
+	}
+
+	kwArgs.Cmd = strings.Replace(kwArgs.Cmd, "{processid}", process.ID, 1)
+	kwArgs.Args = strings.Replace(kwArgs.Args, "{processid}", process.ID, 1)
 
 	spec := &k8s.JobSpec{
 		JobName:           k8s.CreateUniqueJobName("kubexexecutor"),
 		JobContainerImage: kwArgs.Image,
 		ExecCmd:           kwArgs.Cmd,
 		ArgsStr:           kwArgs.Args,
+		MountPath:         process.FunctionSpec.Filesystem.Mount,
 		Parallelism:       process.FunctionSpec.Conditions.Nodes,
 		ContainersPerPod:  process.FunctionSpec.Conditions.ProcessesPerNode,
 		CPU:               process.FunctionSpec.Conditions.CPU,
@@ -426,6 +440,7 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		UseGPU:            process.FunctionSpec.Conditions.GPU.NodeCount > 0,
 		GPUCount:          process.FunctionSpec.Conditions.GPU.NodeCount,
 		GPUName:           process.FunctionSpec.Conditions.GPU.Name,
+		ProcessID:         process.ID,
 	}
 
 	yaml, err := e.k8sHandler.ComposeJobYAML(spec)
@@ -433,10 +448,13 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		e.failureHandler.HandleError(process, err, "Failed to convert spec to k8s yaml")
 	}
 
-	log.WithFields(log.Fields{"JobName": spec.JobName, "Yaml": yaml}).Info("Creating K8s batch job")
+	fmt.Println(yaml)
+
+	log.WithFields(log.Fields{"JobName": spec.JobName}).Info("Creating K8s batch job")
 	jobPodNames, err := e.k8sHandler.CreateJob(yaml, spec)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to create k8s job")
+		return err
 	}
 	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batch job created")
 
@@ -444,12 +462,67 @@ func (e *Executor) executeK8s(process *core.Process) error {
 	err = e.FetchJobLogs(process, jobPodNames, spec.ContainersPerPod)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to get logs")
+		return err
 	}
 
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
+			log.WithFields(log.Fields{"ProcessID": process.ID, "SnapshotID": snapshotMount.SnapshotID}).Info("Downloading snapshots")
+			if !snapshotMount.KeepSnaphot {
+				if snapshotMount.SnapshotID != "" {
+					err = e.client.DeleteSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
+					if err != nil {
+						log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+					} else {
+						log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Info("Snapshot deleted")
+					}
+				}
+				if !snapshotMount.KeepFiles {
+					d := e.fsDir + snapshotMount.Dir
+					d = strings.Replace(d, "{processid}", process.ID, 1)
+					e.debugHandler.LogInfo(process, "Deleting snapshot mount dir: "+d)
+					err := os.RemoveAll(d)
+					if err != nil {
+						e.failureHandler.HandleError(nil, err, "Failed to delete snapshot files")
+						return err
+					}
+				}
+			}
+		}
+	} else {
+		e.debugHandler.LogInfo(process, "Ignoring cleaning up snapshots as mount not definied")
+	}
+
+	onProcessStart := false
+	log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Syncing filesystem")
+	err = e.syncHandler.Sync(process, onProcessStart)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+		return err
+	}
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
+			if !syncDirMount.KeepFiles {
+				d := e.fsDir + syncDirMount.Dir
+				d = strings.Replace(d, "{processid}", process.ID, 1)
+				e.debugHandler.LogInfo(process, "Deleting syncdir mount: "+d)
+				err := os.RemoveAll(d)
+				if err != nil {
+					e.failureHandler.HandleError(nil, err, "Failed to delete syncdir files")
+					return err
+				}
+			}
+		}
+	} else {
+		e.debugHandler.LogInfo(process, "Ignoring syncing dirs as mount not definied")
+	}
+
+	// TODO: make defer deletejob
 	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Deleting job")
 	err = e.k8sHandler.DeleteJob(spec.JobName)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to delete job")
+		return err
 	}
 
 	return nil
