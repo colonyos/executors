@@ -1,28 +1,39 @@
 # Introduction
 TODO This executor runs Unix commands. 
 
+![Design](docs/KubeExecutorDesign.png)
+
 ## Usage
-```console
-cat ./ls.json
-```
 
 ```json
 {
     "conditions": {
-        "executortype": "unix"
+        "executortype": "kubeexecutor",
+        "nodes": 2,
+        "processes-per-node": 2 
+        "mem": "1Gi",
+        "cpu": "500m",
+        "walltime": 60,
+        "gpu": {
+            "count": 0
+        }
     },
-    "funcname": "ls",
-    "args": [
-        "-al"
-    ]
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "echo",
+        "docker-image": "busybox",
+        "rebuild-image": false,
+        "args": [
+            "Hello, World!"
+        ],
+        "keep_snapshots": false
+    },
+    "fs": {
+        "mount": "/cfs",
+        "snapshots": []
+    },
+    "maxwaittime": -1,
+    "maxexectime": 100,
+    "maxretries": 3
 }
-```
-
-```console
-colonies function submit --spec ./ls.json
-```
-
-or altenatively:
-```console
-colonies function exec --func ls --args "-al" --targettype unix
 ```
