@@ -142,7 +142,7 @@ ColonyOS: Starting directory synchronization: Label:/hello Dir:/cfs/hello Downlo
 INFO[0011] Process finished successfully                 ProcessID=b38f3e693a7125ce209f03766879f942abf239bb0b70add98984284d1f4ac6ae
 ```
 
-Change the content of the **hello.txt** to something else and submit another job.
+Change the content of the hello.txt to something else and submit another job.
 
 ```console
 echo "ColonyOS rocks!" > hello/hello.txt 
@@ -166,3 +166,8 @@ ColonyOS: Starting directory synchronization: Label:/hello Dir:/cfs/hello Downlo
 INFO[0019] Process finished successfully                 ProcessID=be994d78e791936a273d582e6829d6e62ba2c7e52ce438ced011627c737fb37f
 ```
 
+## GPUs
+TODO
+
+## Using Colonies FS to execute code
+TODO
