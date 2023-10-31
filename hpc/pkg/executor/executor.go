@@ -428,7 +428,7 @@ func (e *Executor) monitorSlurmForever() {
 									if err != nil {
 										log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
 									} else {
-										log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Debug("Snapshot deleted")
+										log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Info("Snapshot deleted")
 									}
 								}
 								if !snapshotMount.KeepFiles {
@@ -500,7 +500,6 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 			e.failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
 			return err
 		}
-
 	} else {
 		e.debugHandler.LogInfo(process, "Ignoring downloading snapshots and syncing dirs as mount not definied")
 	}
@@ -533,7 +532,6 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 	}
 
 	fmt.Println(script)
-	//e.logInfo(process, "Generated Slurm script:\n "+script)
 
 	if kwArgs.RebuildImage {
 		err := singularity.RemoveSif(kwArgs.Image)
