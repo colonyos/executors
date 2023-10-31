@@ -37,6 +37,7 @@ func createTestJobSpec() JobSpec {
 		GPUName:           "nvidia-gtx-2080ti",
 		PVCName:           "",
 		MountPath:         "/cfs",
+		ProcessID:         "test_processid",
 	}
 
 	return spec

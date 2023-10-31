@@ -18,6 +18,7 @@ type JobSpec struct {
 	GPUName           string
 	GPUCount          int
 	MountPath         string
+	ProcessID         string
 	PVCName           string
 }
 
@@ -36,6 +37,7 @@ func (spec *JobSpec) Equals(spec2 *JobSpec) bool {
 	}
 
 	if spec.TestMode == spec2.TestMode &&
+		spec.ProcessID == spec2.ProcessID &&
 		spec.JobName == spec2.JobName &&
 		spec.JobContainerName == spec2.JobContainerName &&
 		spec.JobContainerImage == spec2.JobContainerImage &&
