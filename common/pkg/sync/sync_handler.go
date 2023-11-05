@@ -42,20 +42,24 @@ func CreateSyncHandler(colonyID string,
 
 func (syncHandler *SyncHandler) PreSync(process *core.Process,
 	debugHandler *debug.DebugHandler,
-	failureHandler *failure.FailureHandler) {
+	failureHandler *failure.FailureHandler) error {
 	if process.FunctionSpec.Filesystem.Mount != "" {
 		err := syncHandler.DownloadSnapshots(process)
 		if err != nil {
 			failureHandler.HandleError(process, err, "Failed to download snapshots")
+			return err
 		}
 		onProcessStart := true
 		err = syncHandler.Sync(process, onProcessStart)
 		if err != nil {
 			failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+			return err
 		}
 	} else {
 		debugHandler.LogInfo(process, "Ignoring downloading snapshots and syncing dirs as mount not definied")
 	}
+
+	return nil
 }
 
 func (syncHandler *SyncHandler) PostSync(process *core.Process,
@@ -64,7 +68,7 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 	fsDir string,
 	client *client.ColoniesClient,
 	colonyID string,
-	executorPrvKey string) {
+	executorPrvKey string) error {
 	if process.FunctionSpec.Filesystem.Mount != "" {
 		for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
 			log.WithFields(log.Fields{"ProcessID": process.ID, "SnapshotID": snapshotMount.SnapshotID}).Info("Downloading snapshots")
@@ -84,6 +88,7 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 					err := os.RemoveAll(d)
 					if err != nil {
 						failureHandler.HandleError(nil, err, "Failed to delete snapshot files")
+						return err
 					}
 				}
 			}
@@ -97,6 +102,7 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 	err := syncHandler.Sync(process, onProcessStart)
 	if err != nil {
 		failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+		return err
 	}
 	if process.FunctionSpec.Filesystem.Mount != "" {
 		for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
@@ -107,12 +113,15 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 				err := os.RemoveAll(d)
 				if err != nil {
 					failureHandler.HandleError(nil, err, "Failed to delete syncdir files")
+					return err
 				}
 			}
 		}
 	} else {
 		debugHandler.LogInfo(process, "Ignoring syncing dirs as mount not definied")
 	}
+
+	return nil
 }
 
 func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {

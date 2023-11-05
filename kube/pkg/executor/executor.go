@@ -414,7 +414,10 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		return err
 	}
 
-	e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
+	err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
+	if err != nil {
+		return err
+	}
 
 	spec := &k8s.JobSpec{
 		JobName:           k8s.CreateUniqueJobName("kubexexecutor"),
@@ -463,7 +466,10 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		return err
 	}
 
-	e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
+	err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -491,10 +497,10 @@ func (e *Executor) ServeForEver() error {
 		if process.FunctionSpec.FuncName == "execute" {
 			err = e.executeK8s(process)
 			if err != nil {
-				e.failureHandler.HandleError(process, err, "Failed to execute K8s")
+				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Error": err}).Error("Failed to executute process")
+			} else {
+				e.client.Close(process.ID, e.executorPrvKey)
 			}
-
-			e.client.Close(process.ID, e.executorPrvKey)
 		} else {
 			log.WithFields(log.Fields{"FuncName": process.FunctionSpec.FuncName}).Error("Unsupported funcname")
 			err := e.client.Fail(process.ID, []string{"Unsupported funcname"}, e.executorPrvKey)

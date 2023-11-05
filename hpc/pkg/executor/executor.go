@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -422,51 +421,9 @@ func (e *Executor) monitorSlurmForever() {
 					continue
 				}
 				if jobEnded.JobStatus == slurm.COMPLETED || jobEnded.JobStatus == slurm.COMPLETING {
-					if process.FunctionSpec.Filesystem.Mount != "" {
-						for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
-							if !snapshotMount.KeepSnaphot {
-								if snapshotMount.SnapshotID != "" {
-									err = e.client.DeleteSnapshotByID(e.colonyID, snapshotMount.SnapshotID, e.executorPrvKey)
-									if err != nil {
-										log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
-									} else {
-										log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Info("Snapshot deleted")
-									}
-								}
-								if !snapshotMount.KeepFiles {
-									d := e.fsDir + snapshotMount.Dir
-									d = strings.Replace(d, "{processid}", process.ID, 1)
-									e.debugHandler.LogInfo(process, "Deleting snapshot mount dir: "+d)
-									err := os.RemoveAll(d)
-									if err != nil {
-										e.failureHandler.HandleError(nil, err, "Failed to delete snapshot files")
-									}
-								}
-							}
-						}
-					} else {
-						e.debugHandler.LogInfo(process, "Ignoring cleaning up snapshots as mount not definied")
-					}
-					onProcessStart := false
-					err = e.syncHandler.Sync(process, onProcessStart)
+					err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
 					if err != nil {
-						e.failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
 						continue
-					}
-					if process.FunctionSpec.Filesystem.Mount != "" {
-						for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
-							if !syncDirMount.KeepFiles {
-								d := e.fsDir + syncDirMount.Dir
-								d = strings.Replace(d, "{processid}", process.ID, 1)
-								e.debugHandler.LogInfo(process, "Deleting syncdir mount: "+d)
-								err := os.RemoveAll(d)
-								if err != nil {
-									e.failureHandler.HandleError(nil, err, "Failed to delete syncdir files")
-								}
-							}
-						}
-					} else {
-						e.debugHandler.LogInfo(process, "Ignoring syncing dirs as mount not definied")
 					}
 					err = e.client.Close(jobEnded.ProcessID, e.executorPrvKey)
 					if err != nil {
@@ -490,20 +447,9 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		return err
 	}
 
-	if process.FunctionSpec.Filesystem.Mount != "" {
-		err := e.syncHandler.DownloadSnapshots(process)
-		if err != nil {
-			e.failureHandler.HandleError(process, err, "Failed to download snapshots")
-			return err
-		}
-		onProcessStart := true
-		err = e.syncHandler.Sync(process, onProcessStart)
-		if err != nil {
-			e.failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
-			return err
-		}
-	} else {
-		e.debugHandler.LogInfo(process, "Ignoring downloading snapshots and syncing dirs as mount not definied")
+	err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
+	if err != nil {
+		return err
 	}
 
 	containerMount := process.FunctionSpec.Filesystem.Mount
@@ -607,7 +553,6 @@ func (e *Executor) ServeForEver() error {
 			err := e.executeSlurm(process)
 			if err != nil {
 				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Error("Failed to execute process")
-				// TODO: should we sleep here?
 				continue
 			}
 		} else {
