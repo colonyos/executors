@@ -10,8 +10,10 @@ metadata:
 spec:
   completions: {{ .Parallelism }}
   parallelism: {{ .Parallelism }}
+  ttlSecondsAfterFinished: 10 
   template:
     spec:
+      activeDeadlineSeconds: {{ .Walltime }}
       {{- if and .UseGPU (ne .GPUName "") }} 
       nodeSelector:
         accelerator: {{ .GPUName }}

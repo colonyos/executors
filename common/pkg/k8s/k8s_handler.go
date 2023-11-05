@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -907,4 +908,45 @@ func (handler *K8sHandler) GetStdOut(podName string, containerName string) (stri
 	}
 
 	return allLines, nil
+}
+
+func (handler *K8sHandler) GetUtilization() error {
+	jobs, err := handler.clientset.BatchV1().Jobs(handler.namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	totalCPU := int64(0)
+	totalMem := int64(0)
+
+	for _, job := range jobs.Items {
+		selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
+		if err != nil {
+			return err
+		}
+
+		pods, err := handler.clientset.CoreV1().Pods(handler.namespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: selector.String(),
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, pod := range pods.Items {
+			for _, container := range pod.Spec.Containers {
+				cpu := container.Resources.Requests[corev1.ResourceCPU]
+				mem := container.Resources.Requests[corev1.ResourceMemory]
+
+				totalCPU += cpu.MilliValue() // CPU in milli-cores
+				totalMem += mem.Value()      // Memory in bytes
+			}
+		}
+	}
+
+	totalMemInGiB := float64(totalMem) / math.Pow(1024, 3)
+
+	fmt.Printf("Total CPU usage in millicores: %d\n", totalCPU)
+	fmt.Printf("Total Memory usage in GiB: %.2f\n", totalMemInGiB)
+
+	return nil
 }

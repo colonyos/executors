@@ -20,6 +20,7 @@ type JobSpec struct {
 	MountPath         string
 	ProcessID         string
 	PVCName           string
+	Walltime          int64
 }
 
 func (spec *JobSpec) ToJSON() (string, error) {

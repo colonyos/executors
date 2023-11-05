@@ -433,6 +433,7 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		GPUCount:          process.FunctionSpec.Conditions.GPU.Count,
 		GPUName:           process.FunctionSpec.Conditions.GPU.Name,
 		ProcessID:         process.ID,
+		Walltime:          process.FunctionSpec.Conditions.WallTime,
 	}
 
 	yaml, err := e.k8sHandler.ComposeJobYAML(spec)
@@ -448,14 +449,6 @@ func (e *Executor) executeK8s(process *core.Process) error {
 		e.failureHandler.HandleError(process, err, "Failed to create k8s batchjob")
 		return err
 	}
-
-	defer func() {
-		log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Deleting job")
-		err = e.k8sHandler.DeleteJob(spec.JobName)
-		if err != nil {
-			e.failureHandler.HandleError(process, err, "Failed to delete job")
-		}
-	}()
 
 	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batchjob created")
 	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("Monitoring K8s batchjob lifecycle, and getting logs")
@@ -495,12 +488,18 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			err = e.executeK8s(process)
+			err = e.k8sHandler.GetUtilization()
 			if err != nil {
-				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Error": err}).Error("Failed to executute process")
-			} else {
-				e.client.Close(process.ID, e.executorPrvKey)
+				return err
 			}
+			go func() {
+				err = e.executeK8s(process)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Error": err}).Error("Failed to executute process")
+				} else {
+					e.client.Close(process.ID, e.executorPrvKey)
+				}
+			}()
 		} else {
 			log.WithFields(log.Fields{"FuncName": process.FunctionSpec.FuncName}).Error("Unsupported funcname")
 			err := e.client.Fail(process.ID, []string{"Unsupported funcname"}, e.executorPrvKey)
