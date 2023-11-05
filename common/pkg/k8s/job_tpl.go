@@ -43,7 +43,7 @@ spec:
             memory: "{{ $memory }}"
             cpu: "{{ $cpu }}"
             {{- if $useGPU }}
-              nvidia.com/gpu: "{{ $gpuCount }}"
+            nvidia.com/gpu: "{{ $gpuCount }}"
             {{- end }}
         {{- end }}
       restartPolicy: Never

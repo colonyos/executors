@@ -53,7 +53,6 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 	rebuildImageIf := process.FunctionSpec.KwArgs["rebuild-image"]
 	rebuildImage, ok := rebuildImageIf.(bool)
 	if !ok {
-		debugHandler.LogInfo(process, "Failed to parse rebuild image flag, setting rebuildImage to false")
 		rebuildImage = false
 	}
 
@@ -88,5 +87,9 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 	execCmd = append([]string{cmd}, execCmd...)
 	execCmdStr := strings.Join(execCmd[:], " ")
 
-	return &KwArgs{Image: image, RebuildImage: rebuildImage, Cmd: cmd, Args: argsStr, ExecCmd: execCmdStr, ExecCmdArr: execCmd}, nil
+	kwArgs := &KwArgs{Image: image, RebuildImage: rebuildImage, Cmd: cmd, Args: argsStr, ExecCmd: execCmdStr, ExecCmdArr: execCmd}
+	kwArgs.Cmd = strings.Replace(kwArgs.Cmd, "{processid}", process.ID, 1)
+	kwArgs.Args = strings.Replace(kwArgs.Args, "{processid}", process.ID, 1)
+
+	return kwArgs, nil
 }

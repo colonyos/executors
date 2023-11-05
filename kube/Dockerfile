@@ -3,4 +3,4 @@ FROM alpine
 WORKDIR /
 COPY ./bin/kube_executor /bin
 
-CMD ["kube_executor", "start"]
+CMD ["kube_executor", "start", "-v"]

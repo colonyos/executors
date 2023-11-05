@@ -40,6 +40,81 @@ func CreateSyncHandler(colonyID string,
 	return &SyncHandler{colonyID: colonyID, executorPrvKey: executorPrvKey, client: client, fsDir: fsDir, failureHandler: failureHandler, debugHandler: debugHandler}, nil
 }
 
+func (syncHandler *SyncHandler) PreSync(process *core.Process,
+	debugHandler *debug.DebugHandler,
+	failureHandler *failure.FailureHandler) {
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		err := syncHandler.DownloadSnapshots(process)
+		if err != nil {
+			failureHandler.HandleError(process, err, "Failed to download snapshots")
+		}
+		onProcessStart := true
+		err = syncHandler.Sync(process, onProcessStart)
+		if err != nil {
+			failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+		}
+	} else {
+		debugHandler.LogInfo(process, "Ignoring downloading snapshots and syncing dirs as mount not definied")
+	}
+}
+
+func (syncHandler *SyncHandler) PostSync(process *core.Process,
+	debugHandler *debug.DebugHandler,
+	failureHandler *failure.FailureHandler,
+	fsDir string,
+	client *client.ColoniesClient,
+	colonyID string,
+	executorPrvKey string) {
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
+			log.WithFields(log.Fields{"ProcessID": process.ID, "SnapshotID": snapshotMount.SnapshotID}).Info("Downloading snapshots")
+			if !snapshotMount.KeepSnaphot {
+				if snapshotMount.SnapshotID != "" {
+					err := client.DeleteSnapshotByID(colonyID, snapshotMount.SnapshotID, executorPrvKey)
+					if err != nil {
+						log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
+					} else {
+						log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID}).Info("Snapshot deleted")
+					}
+				}
+				if !snapshotMount.KeepFiles {
+					d := fsDir + snapshotMount.Dir
+					d = strings.Replace(d, "{processid}", process.ID, 1)
+					debugHandler.LogInfo(process, "Deleting snapshot mount dir: "+d)
+					err := os.RemoveAll(d)
+					if err != nil {
+						failureHandler.HandleError(nil, err, "Failed to delete snapshot files")
+					}
+				}
+			}
+		}
+	} else {
+		debugHandler.LogInfo(process, "Ignoring cleaning up snapshots as mount not definied")
+	}
+
+	onProcessStart := false
+	log.WithFields(log.Fields{"ProcessID": process.ID}).Info("Syncing filesystem")
+	err := syncHandler.Sync(process, onProcessStart)
+	if err != nil {
+		failureHandler.HandleError(process, err, "Failed to sync to filesystem, onProcessStart="+strconv.FormatBool(onProcessStart))
+	}
+	if process.FunctionSpec.Filesystem.Mount != "" {
+		for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
+			if !syncDirMount.KeepFiles {
+				d := fsDir + syncDirMount.Dir
+				d = strings.Replace(d, "{processid}", process.ID, 1)
+				debugHandler.LogInfo(process, "Deleting syncdir mount: "+d)
+				err := os.RemoveAll(d)
+				if err != nil {
+					failureHandler.HandleError(nil, err, "Failed to delete syncdir files")
+				}
+			}
+		}
+	} else {
+		debugHandler.LogInfo(process, "Ignoring syncing dirs as mount not definied")
+	}
+}
+
 func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
 	filesystem := process.FunctionSpec.Filesystem
 	fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyID, syncHandler.executorPrvKey)
@@ -115,7 +190,7 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 				strategy = "keepremote"
 			}
 
-			syncHandler.debugHandler.LogInfo(process, "Starting directory synchronization: Label:"+l+" Dir:"+d+" Download:"+strconv.Itoa(len(syncplan.LocalMissing))+" Upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" Conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" ConflictResolutionStrategy:"+strategy)
+			syncHandler.debugHandler.LogInfo(process, "Syncing cfs: label:"+l+" dir:"+d+" download:"+strconv.Itoa(len(syncplan.LocalMissing))+" upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" conflictstrategy:"+strategy)
 			err = fsClient.ApplySyncPlan(syncHandler.colonyID, syncplan)
 			if err != nil {
 				syncHandler.failureHandler.HandleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)

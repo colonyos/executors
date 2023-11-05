@@ -1,0 +1,23 @@
+{
+    "conditions": {
+        "executortype": "ice-kubeexecutor",
+        "nodes": 1,
+        "processes-per-node": 1,
+        "mem": "2000Mi",
+        "cpu": "500m",
+        "gpu": {
+            "name": "nvidia-gtx-2080ti",
+            "count": 1
+        },
+        "walltime": 600
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "nvidia-smi",
+        "args": [],
+        "docker-image": "tensorflow/tensorflow:2.14.0rc1-gpu",
+        "rebuild-image": false
+    },
+    "maxexectime": 600,
+    "maxretries": 3
+}

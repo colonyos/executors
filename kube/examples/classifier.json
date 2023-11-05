@@ -1,0 +1,59 @@
+{
+    "conditions": {
+        "executortype": "ice-kubeexecutor",
+        "nodes": 1,
+        "processes-per-node": 1,
+        "mem": "5Gi",
+        "cpu": "2000m",
+        "gpu": {
+            "name": "nvidia-gtx-2080ti",
+            "count": 1
+        },
+        "walltime": 600
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "python3",
+        "docker-image": "johan/classifier",
+        "rebuild-image": false,
+        "args": [
+            "/cfs/src/{processid}/classifier.py"
+        ]
+    },
+    "fs": {
+        "mount": "/cfs",
+        "snapshots": [
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/src",
+                "dir": "/src/{processid}",
+                "keepfiles": false,
+                "keepsnaphot": false
+            },
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/data",
+                "dir": "/data",
+                "keepfiles": true,
+                "keepsnaphot": false
+            }
+        ],
+        "dirs": [
+            {
+                "label": "/results",
+                "dir": "/results",
+                "keepfiles": true,
+                "onconflicts": {
+                    "onstart": {
+                        "keeplocal": false
+                    },
+                    "onclose": {
+                        "keeplocal": true
+                    }
+                }
+            }
+        ]
+    },
+    "maxexectime": 600,
+    "maxretries": 3
+}

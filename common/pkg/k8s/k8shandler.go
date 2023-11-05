@@ -664,12 +664,10 @@ func (handler *K8sHandler) HasContainerFinished(podName string, containerName st
 
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		if containerStatus.Name == containerName {
-			if containerStatus.State.Terminated != nil {
-				if containerStatus.State.Terminated.ExitCode == 0 {
-					return true, nil
-				} else {
-					return true, fmt.Errorf("container %s terminated with error: %s", containerName, containerStatus.State.Terminated.Message)
-				}
+			if containerStatus.State.Waiting != nil {
+				return false, nil
+			} else if containerStatus.State.Terminated != nil {
+				return true, nil
 			}
 
 			return false, nil
@@ -739,9 +737,6 @@ func (handler *K8sHandler) PrintJobLogs(podNames []string, containers int) error
 	eofChan := make(chan bool)
 	errChan := make(chan error)
 	handler.HandleJobLog(podNames, aggregatedLogsChan, eofChan, errChan)
-
-	fmt.Println("podsnames:", podNames)
-	fmt.Println("containers:", containers)
 
 	eofCounter := 0
 	for {
@@ -821,7 +816,7 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 
 	podLogRequest := handler.clientset.CoreV1().Pods(handler.namespace).GetLogs(podName, &podLogOptions)
 
-	func() {
+	go func() {
 		var stream io.ReadCloser
 		var err error
 		retries := 0
@@ -849,28 +844,23 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 		for {
 			buf := make([]byte, 2000)
 			numBytes, err := stream.Read(buf)
-			if err == io.EOF {
+			if numBytes > 0 {
+				message := string(buf[:numBytes])
+				log.MsgChan <- message
+			} else {
+				time.Sleep(500 * time.Millisecond)
+			}
+			if err != nil {
 				containerFinished, err := handler.HasContainerFinished(podName, containerName)
 				if err != nil {
 					log.ErrChan <- err
-					break
+					return
 				}
 				if containerFinished {
 					log.EofChan <- true
-					break
+					return
 				}
-				continue
 			}
-			if err != nil {
-				log.ErrChan <- errors.New("Failed to read log buffer: " + err.Error())
-				break
-			}
-			if numBytes == 0 {
-				continue
-			}
-
-			message := string(buf[:numBytes])
-			log.MsgChan <- message
 		}
 	}()
 
