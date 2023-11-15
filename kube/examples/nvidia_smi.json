@@ -1,13 +1,13 @@
 {
     "conditions": {
         "executortype": "ice-kubeexecutor",
-        "nodes": 1,
-        "processes-per-node": 1,
+        "nodes": 2,
+        "processes-per-node": 2,
         "mem": "2000Mi",
         "cpu": "500m",
         "gpu": {
             "name": "nvidia-gtx-2080ti",
-            "count": 1
+            "count": 2
         },
         "walltime": 600
     },
