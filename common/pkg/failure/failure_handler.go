@@ -23,7 +23,7 @@ func CreateFailureHandler(executorPrvKey string, client *client.ColoniesClient) 
 
 func (handler *FailureHandler) HandleError(process *core.Process, err error, errMsg string) {
 	if err != nil {
-		msg := "ColonyOS: "
+		msg := "HPCExecutor: "
 		if errMsg != "" {
 			msg += err.Error() + ":" + errMsg
 		} else {

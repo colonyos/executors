@@ -25,6 +25,7 @@ import (
 const DEFAULT_CONTAINER_MOUNT = "/cfs"
 
 type Executor struct {
+	addDebugLogs       bool
 	verbose            bool
 	coloniesServerHost string
 	coloniesServerPort int
@@ -70,6 +71,12 @@ type ExecutorOption func(*Executor)
 func WithVerbose(verbose bool) ExecutorOption {
 	return func(e *Executor) {
 		e.verbose = verbose
+	}
+}
+
+func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
+	return func(e *Executor) {
+		e.addDebugLogs = addDebugLogs
 	}
 }
 
@@ -339,7 +346,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.debugHandler, err = debug.CreateDebugHandler(e.executorPrvKey, e.client)
+	e.debugHandler, err = debug.CreateDebugHandler(e.executorPrvKey, e.client, e.addDebugLogs)
 	if err != nil {
 		return nil, err
 	}
@@ -350,6 +357,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	}
 
 	log.WithFields(log.Fields{
+		"AddDebugLogs":          e.addDebugLogs,
 		"Verbose":               e.verbose,
 		"ColoniesServerHost":    e.coloniesServerHost,
 		"ColoniesServerPort":    e.coloniesServerPort,

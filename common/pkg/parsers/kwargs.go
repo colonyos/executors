@@ -11,6 +11,7 @@ import (
 )
 
 type KwArgs struct {
+	Debug        bool
 	Image        string
 	RebuildImage bool
 	Cmd          string
@@ -42,6 +43,12 @@ func ifArr2StringArr(ifarr []interface{}) []string {
 }
 
 func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, debugHandler *debug.DebugHandler) (*KwArgs, error) {
+	debugIf := process.FunctionSpec.KwArgs["debug"]
+	debug, ok := debugIf.(bool)
+	if !ok {
+		debug = false
+	}
+
 	imageIf := process.FunctionSpec.KwArgs["docker-image"]
 	image, ok := imageIf.(string)
 	if !ok {
@@ -87,7 +94,15 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 	execCmd = append([]string{cmd}, execCmd...)
 	execCmdStr := strings.Join(execCmd[:], " ")
 
-	kwArgs := &KwArgs{Image: image, RebuildImage: rebuildImage, Cmd: cmd, Args: argsStr, ExecCmd: execCmdStr, ExecCmdArr: execCmd}
+	kwArgs := &KwArgs{
+		Debug:        debug,
+		Image:        image,
+		RebuildImage: rebuildImage,
+		Cmd:          cmd,
+		Args:         argsStr,
+		ExecCmd:      execCmdStr,
+		ExecCmdArr:   execCmd}
+
 	kwArgs.Cmd = strings.Replace(kwArgs.Cmd, "{processid}", process.ID, 1)
 	kwArgs.Args = strings.Replace(kwArgs.Args, "{processid}", process.ID, 1)
 

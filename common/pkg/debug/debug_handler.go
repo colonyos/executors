@@ -11,22 +11,25 @@ import (
 type DebugHandler struct {
 	executorPrvKey string
 	client         *client.ColoniesClient
+	addLogs        bool
 }
 
-func CreateDebugHandler(executorPrvKey string, client *client.ColoniesClient) (*DebugHandler, error) {
+func CreateDebugHandler(executorPrvKey string, client *client.ColoniesClient, addLogs bool) (*DebugHandler, error) {
 	if client == nil {
 		return nil, errors.New("colonies client is nil")
 	}
 
-	return &DebugHandler{executorPrvKey: executorPrvKey, client: client}, nil
+	return &DebugHandler{executorPrvKey: executorPrvKey, client: client, addLogs: addLogs}, nil
 }
 
 func (handler *DebugHandler) LogInfo(process *core.Process, infoMsg string) {
 	log.WithFields(log.Fields{"ProcessID": process.ID}).Info(infoMsg)
 	if process != nil {
-		err1 := handler.client.AddLog(process.ID, "ColonyOS: "+infoMsg+"\n", handler.executorPrvKey)
-		if err1 != nil {
-			log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err1}).Error("Failed to add info log to process")
+		if handler.addLogs {
+			err1 := handler.client.AddLog(process.ID, "ColonyOS: "+infoMsg+"\n", handler.executorPrvKey)
+			if err1 != nil {
+				log.WithFields(log.Fields{"ProcessId": process.ID, "Error": err1}).Error("Failed to add info log to process")
+			}
 		}
 	}
 }

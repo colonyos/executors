@@ -289,7 +289,6 @@ func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobEndedChan chan *Jo
 						exists := <-reply
 						if !exists {
 							logPath := dir + "/" + file.Name()
-							fmt.Println("Monitoring " + logPath)
 							errChan := make(chan error)
 							addProcessChan <- &processRecord{processID: processID, errChan: errChan}
 							err = slurm.MonitorExecutionProgress(logPath, logChan, jobEndedChan, errChan, false)

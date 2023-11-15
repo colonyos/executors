@@ -22,6 +22,7 @@ import (
 
 type Executor struct {
 	verbose            bool
+	addDebugLogs       bool
 	coloniesServerHost string
 	coloniesServerPort int
 	coloniesInsecure   bool
@@ -229,6 +230,12 @@ func WithK8sName(k8sName string) ExecutorOption {
 	}
 }
 
+func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
+	return func(e *Executor) {
+		e.addDebugLogs = addDebugLogs
+	}
+}
+
 func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
@@ -309,7 +316,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.debugHandler, err = debug.CreateDebugHandler(e.executorPrvKey, e.client)
+	e.debugHandler, err = debug.CreateDebugHandler(e.executorPrvKey, e.client, e.addDebugLogs)
 	if err != nil {
 		return nil, err
 	}
