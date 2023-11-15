@@ -1,0 +1,36 @@
+{
+    "conditions": {
+        "executortype": "lumi-hpcexecutor",
+        "nodes": 1,
+        "processes_per_node": 1,
+        "mem": "5G",
+        "gpu": {
+            "count": 1
+        },
+        "walltime": 60
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "python3",
+        "docker-image": "python:3.12-rc-bookworm",
+        "rebuild-image": false,
+        "args": [
+            "/cfs/src/get_webpage.py"
+        ],
+        "keep_snapshots": false
+    },
+    "fs": {
+        "mount": "/cfs",
+        "snapshots": [
+            {
+                "snapshotid": "{snapshotid}",
+                "label": "/src",
+                "dir": "/src/{processid}",
+                "keepfiles": false,
+                "keepsnaphot": false
+            }
+        ]
+    },
+    "maxexectime": 100,
+    "maxretries": 3
+}

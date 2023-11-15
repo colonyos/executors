@@ -1,0 +1,25 @@
+{
+    "conditions": {
+        "executortype": "leonardo-hpcexecutor",
+        "nodes": 4,
+        "processes_per_node": 1,
+        "mem": "15G",
+        "gpu": {
+            "count": 4
+        },
+        "walltime": 600
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "ping",
+        "args": [
+            "www.ri.se"
+        ],
+        "docker-image": "tensorflow/tensorflow:2.14.0rc1-gpu",
+        "rebuild-image": false,
+        "keep_snapshots": false
+    },
+    "maxwaittime": -1,
+    "maxexectime": 600,
+    "maxretries": 3
+}

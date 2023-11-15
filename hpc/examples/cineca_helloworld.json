@@ -12,11 +12,11 @@
     "funcname": "execute",
     "kwargs": {
         "cmd": "python3",
-        "docker-image": "python:3.12-rc-bookworm",
-        "rebuild-image": false,
         "args": [
             "/src/helloworld.py"
         ],
+        "docker-image": "python:3.12-rc-bookworm",
+        "rebuild-image": false,
         "keep_snapshots": false
     },
     "fs": [
