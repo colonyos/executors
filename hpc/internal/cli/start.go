@@ -80,6 +80,12 @@ var startCmd = &cobra.Command{
 			gres = true
 		}
 
+		addDebugLogsStr := os.Getenv("EXECUTOR_ADD_DEBUG_LOGS")
+		addDebugLogs := false
+		if addDebugLogsStr == "true" {
+			addDebugLogs = true
+		}
+
 		executor, err := executor.CreateExecutor(
 			executor.WithVerbose(Verbose),
 			executor.WithColoniesServerHost(ColoniesServerHost),
@@ -111,6 +117,7 @@ var startCmd = &cobra.Command{
 			executor.WithLat(lat),
 			executor.WithLocDesc(locDesc),
 			executor.WithExecutorType(executorType),
+			executor.WithAddDebugLogs(addDebugLogs),
 			executor.WithGRES(gres),
 		)
 		CheckError(err)

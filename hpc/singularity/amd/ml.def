@@ -1,0 +1,5 @@
+Bootstrap: docker
+From: rocm/tensorflow:latest
+
+%post
+  apt update

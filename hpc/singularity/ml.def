@@ -1,5 +1,0 @@
-Bootstrap: docker
-From: docker.io/tensorflow/tensorflow:2.13.0-gpu
-
-%post
-  apt update
