@@ -28,6 +28,7 @@ var startCmd = &cobra.Command{
 		}
 
 		executor, err := executor.CreateExecutor(
+			executor.WithAddDebugLogs(AddDebugLogs),
 			executor.WithVerbose(Verbose),
 			executor.WithColoniesServerHost(ColoniesServerHost),
 			executor.WithColoniesServerPort(ColoniesServerPort),
@@ -165,6 +166,12 @@ func parseEnv() {
 	K8sName = os.Getenv("EXECUTOR_K8S_NAME")
 	K8sNamespace = os.Getenv("EXECUTOR_K8S_NAMESPACE")
 	K8sPVC = os.Getenv("EXECUTOR_K8S_PVC")
+
+	addDebugLogsStr := os.Getenv("EXECUTOR_ADD_DEBUG_LOGS")
+	AddDebugLogs = false
+	if addDebugLogsStr == "true" {
+		AddDebugLogs = true
+	}
 }
 
 func CheckError(err error) {

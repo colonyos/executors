@@ -42,6 +42,7 @@ var K8sName string
 var K8sNamespace string
 var K8sPVC string
 var ProcessID string
+var AddDebugLogs bool
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
