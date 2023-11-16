@@ -1,6 +1,6 @@
 {
     "conditions": {
-        "executortype": "leonardo-hpcexecutor",
+        "executortype": "leonardo-booster-hpcexecutor",
         "nodes": 4,
         "processes_per_node": 1,
         "mem": "15G",

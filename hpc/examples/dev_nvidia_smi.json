@@ -1,7 +1,7 @@
 {
     "conditions": {
-        "executortype": "borg-hpcexecutor",
-        "nodes": 3,
+        "executortype": "dev-hpcexecutor",
+        "nodes": 1,
         "processes_per_node": 1,
         "walltime": 60,
         "gpu": {

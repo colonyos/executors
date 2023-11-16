@@ -12,8 +12,7 @@
         "rebuild-image": false,
         "args": [
             "/cfs/src/{processid}/output.py"
-        ],
-        "keep_snapshots": false
+        ]
     },
     "fs": {
         "mount": "/cfs",

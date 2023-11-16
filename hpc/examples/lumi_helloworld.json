@@ -1,9 +1,9 @@
 {
     "conditions": {
-        "executortype": "lumi-hpcexecutor",
+        "executortype": "lumi-small-hpcexecutor",
         "nodes": 1,
         "processes_per_node": 1,
-        "mem": "5G",
+        "mem": "10G",
         "gpu": {
             "count": 1
         },
@@ -15,7 +15,7 @@
         "docker-image": "python:3.12-rc-bookworm",
         "rebuild-image": false,
         "args": [
-            "/cfs/src/get_webpage.py"
+            "/cfs/src/{processid}/helloworld.py"
         ],
         "keep_snapshots": false
     },
@@ -31,6 +31,7 @@
             }
         ]
     },
-    "maxexectime": 100,
+    "maxwaittime": -1,
+    "maxexectime": 10,
     "maxretries": 3
 }

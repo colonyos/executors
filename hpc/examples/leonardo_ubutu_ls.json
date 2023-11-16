@@ -14,7 +14,6 @@
         "cmd": "ls /",
         "docker-image": "ubuntu:20.04"
     },
-    "fs": {},
     "maxexectime": 100,
     "maxretries": 3
 }

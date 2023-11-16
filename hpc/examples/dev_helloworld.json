@@ -1,6 +1,6 @@
 {
     "conditions": {
-        "executortype": "borg-hpcexecutor",
+        "executortype": "dev-hpcexecutor",
         "nodes": 1,
         "processes_per_node": 1,
         "walltime": 60
@@ -12,8 +12,7 @@
         "rebuild-image": false,
         "args": [
             "/cfs/src/{processid}/helloworld.py"
-        ],
-        "keep_snapshots": false
+        ]
     },
     "fs": {
         "mount": "/cfs",

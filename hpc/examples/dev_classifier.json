@@ -15,8 +15,7 @@
         "rebuild-image": false,
         "args": [
             "/cfs/src/{processid}/classifier.py"
-        ],
-        "learning-rate": 0.1
+        ]
     },
     "fs": {
         "mount": "/cfs",

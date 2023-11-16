@@ -1,6 +1,6 @@
 {
     "conditions": {
-        "executortype": "lumi-hpcexecutor",
+        "executortype": "lumi-small-hpcexecutor",
         "nodes": 1,
         "processes_per_node": 1,
         "mem": "5G",
