@@ -415,20 +415,23 @@ func (e *Executor) FetchJobLogs(process *core.Process, podNames []string, contai
 	}
 }
 
-func (e *Executor) executeK8s(process *core.Process) error {
+func (e *Executor) executeK8s(process *core.Process) bool {
 	err := parsers.ValidateFuncSpec(&process.FunctionSpec)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to validate funcspec")
+		return false
 	}
 
 	kwArgs, err := parsers.ParseKwArgs(process, e.failureHandler, e.debugHandler)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to parse kwArgs")
+		return false
 	}
 
 	err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to pre sync")
+		return false
 	}
 
 	spec := &k8s.JobSpec{
@@ -451,6 +454,7 @@ func (e *Executor) executeK8s(process *core.Process) error {
 	yaml, err := e.k8sHandler.ComposeJobYAML(spec)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to convert spec to k8s yaml")
+		return false
 	}
 
 	fmt.Println(yaml)
@@ -459,7 +463,7 @@ func (e *Executor) executeK8s(process *core.Process) error {
 	jobPodNames, err := e.k8sHandler.CreateJob(yaml, spec)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to create k8s batchjob")
-		return err
+		return false
 	}
 
 	log.WithFields(log.Fields{"JobName": spec.JobName, "Pods": jobPodNames}).Info("K8s batchjob created")
@@ -468,15 +472,16 @@ func (e *Executor) executeK8s(process *core.Process) error {
 	err = e.FetchJobLogs(process, jobPodNames, spec.ContainersPerPod)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to get logs")
-		return err
+		return false
 	}
 
 	err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to post sync")
+		return false
 	}
 
-	return nil
+	return true
 }
 
 func (e *Executor) ServeForEver() error {
@@ -505,10 +510,8 @@ func (e *Executor) ServeForEver() error {
 				return err
 			}
 			go func() {
-				err = e.executeK8s(process)
-				if err != nil {
-					log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID, "Error": err}).Error("Failed to executute process")
-				} else {
+				ok := e.executeK8s(process)
+				if ok {
 					e.client.Close(process.ID, e.executorPrvKey)
 				}
 			}()

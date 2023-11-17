@@ -16,8 +16,7 @@
         "docker-image": "python:3.12-rc-bookworm",
         "rebuild-image": false,
         "args": [
-            "/cfs/src/{processid}/helloworld.py",
-            "2"
+            "/cfs/src/{processid}/helloworld.py"
         ],
         "keep_snapshots": false
     },

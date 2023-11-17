@@ -1,1 +1,1 @@
-1. No feedback is returned if walltime<maxexectime.
+1. If a process failes, it will remove the snapshot and the next one will never be able to sync 
