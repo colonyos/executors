@@ -416,6 +416,11 @@ func (e *Executor) FetchJobLogs(process *core.Process, podNames []string, contai
 }
 
 func (e *Executor) executeK8s(process *core.Process) error {
+	err := parsers.ValidateFuncSpec(&process.FunctionSpec)
+	if err != nil {
+		return err
+	}
+
 	kwArgs, err := parsers.ParseKwArgs(process, e.failureHandler, e.debugHandler)
 	if err != nil {
 		return err

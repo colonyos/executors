@@ -80,6 +80,12 @@ var startCmd = &cobra.Command{
 			gres = true
 		}
 
+		devModeStr := os.Getenv("EXECUTOR_DEVMODE")
+		devMode := false
+		if devModeStr == "true" {
+			devMode = true
+		}
+
 		addDebugLogsStr := os.Getenv("EXECUTOR_ADD_DEBUG_LOGS")
 		addDebugLogs := false
 		if addDebugLogsStr == "true" {
@@ -119,6 +125,7 @@ var startCmd = &cobra.Command{
 			executor.WithExecutorType(executorType),
 			executor.WithAddDebugLogs(addDebugLogs),
 			executor.WithGRES(gres),
+			executor.WithDevMode(devMode),
 		)
 		CheckError(err)
 

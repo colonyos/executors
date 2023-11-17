@@ -2,18 +2,19 @@
     "conditions": {
         "executortype": "leonardo-booster-hpcexecutor",
         "nodes": 1,
-        "processes_per_node": 1,
-        "mem": "5G",
+        "processes-per-node": 1,
+        "cpu": "1000m",
+        "mem": "5Gi",
         "gpu": {
             "count": 1
         },
-        "walltime": 60
+        "walltime": 70
     },
     "funcname": "execute",
     "kwargs": {
         "cmd": "ls /",
         "docker-image": "ubuntu:20.04"
     },
-    "maxexectime": 100,
+    "maxexectime": 60,
     "maxretries": 3
 }

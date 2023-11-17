@@ -15,8 +15,15 @@ const SlurmBatchTemplate = `#!/bin/bash
 {{- if .TasksPerNode}}
 #SBATCH --ntasks-per-node={{.TasksPerNode}}
 {{- end}}
+{{- if not .DevMode}}
+{{- if .CPUsPerTask}}
+#SBATCH --cpus-per-task={{.CPUsPerTask}}
+{{- end}}
+{{- end}}
+{{- if not .DevMode}}
 {{- if .Memory}}
 #SBATCH --mem={{.Memory}}
+{{- end}}
 {{- end}}
 {{- if gt .GPUs 0}}
 {{- if .GRES}}

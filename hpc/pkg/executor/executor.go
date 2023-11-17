@@ -27,6 +27,7 @@ const DEFAULT_CONTAINER_MOUNT = "/cfs"
 type Executor struct {
 	addDebugLogs       bool
 	verbose            bool
+	devMode            bool
 	coloniesServerHost string
 	coloniesServerPort int
 	coloniesInsecure   bool
@@ -77,6 +78,12 @@ func WithVerbose(verbose bool) ExecutorOption {
 func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
 	return func(e *Executor) {
 		e.addDebugLogs = addDebugLogs
+	}
+}
+
+func WithDevMode(devMode bool) ExecutorOption {
+	return func(e *Executor) {
+		e.devMode = devMode
 	}
 }
 
@@ -449,15 +456,23 @@ func (e *Executor) monitorSlurmForever() {
 	}()
 }
 
-func (e *Executor) executeSlurm(process *core.Process) error {
+func (e *Executor) executeSlurm(process *core.Process) bool {
+	err := parsers.ValidateFuncSpec(&process.FunctionSpec)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to validate funcspec")
+		return false
+	}
+
 	kwArgs, err := parsers.ParseKwArgs(process, e.failureHandler, e.debugHandler)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to parse kwargs")
+		return false
 	}
 
 	err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
 	if err != nil {
-		return err
+		e.failureHandler.HandleError(process, err, "Failed to pre-sync")
+		return false
 	}
 
 	containerMount := process.FunctionSpec.Filesystem.Mount
@@ -468,6 +483,7 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 	singularity := singularity.CreateSingularity(e.imageDir)
 	script, err := e.slurm.GenerateSlurmScript(process.FunctionSpec.Conditions.Nodes,
 		process.FunctionSpec.Conditions.ProcessesPerNode,
+		process.FunctionSpec.Conditions.CPU,
 		int(process.FunctionSpec.Conditions.WallTime),
 		process.FunctionSpec.Conditions.Memory,
 		process.FunctionSpec.Conditions.GPU.Count,
@@ -481,17 +497,17 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		strconv.Itoa(e.coloniesServerPort),
 		e.colonyID,
 		e.executorID,
-		e.executorPrvKey)
+		e.executorPrvKey,
+		e.devMode)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to generate Slurm script")
-		return err
+		return false
 	}
-
-	fmt.Println(script)
 
 	if kwArgs.RebuildImage {
 		err := singularity.RemoveSif(kwArgs.Image)
 		e.failureHandler.HandleError(process, err, "Failed to remove Singularity image: "+kwArgs.Image)
+		return false
 	}
 
 	e.debugHandler.LogInfo(process, "Creating singularity container: "+kwArgs.Image+" to "+e.imageDir)
@@ -500,7 +516,7 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		e.debugHandler.LogInfo(process, logs)
 		if err != nil {
 			e.failureHandler.HandleError(process, err, "Failed to pull container image: "+kwArgs.Image)
-			return err
+			return false
 		}
 	} else {
 		e.debugHandler.LogInfo(process, "Image already exists: "+kwArgs.Image)
@@ -509,7 +525,7 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 	jobID, err := e.slurm.Submit(script)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to submit Slurm script")
-		return err
+		return false
 	}
 
 	log.WithFields(log.Fields{
@@ -532,7 +548,8 @@ func (e *Executor) executeSlurm(process *core.Process) error {
 		"SlurmBatchScript": script,
 		"ExecutorType":     process.FunctionSpec.Conditions.ExecutorType}).
 		Info("Executing process")
-	return nil
+
+	return true
 }
 
 func (e *Executor) ServeForEver() error {
@@ -558,9 +575,8 @@ func (e *Executor) ServeForEver() error {
 		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			err := e.executeSlurm(process)
-			if err != nil {
-				log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Error("Failed to execute process")
+			ok := e.executeSlurm(process)
+			if !ok {
 				continue
 			}
 		} else {

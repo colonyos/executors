@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/colonyos/colonies/pkg/core"
+	"github.com/colonyos/executors/common/pkg/singularity"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,19 +16,45 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 	module := "singularity/3.8.7"
 	nodes := 10
 	tasksPerNode := 1
+	cpusPerTask := "1000m"
 	walltime := 70
-	mem := "10G"
+	mem := "10Gi"
 	gpus := 2
 	command := "nvidia-smi"
 	image := "/ml.sif"
 	processID := core.GenerateRandomID()
-	logDir := "/scratch/slurm/logs"
-	workDir := "/scratch/slurm/workdir"
-	containerWorkDir := "/workdir"
+	containerFSDir := "/cfs"
+	coloniesTLS := "true"
+	coloniesServerHost := "colonies.colonyos.io"
+	coloniesServerPort := "443"
+	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
+	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
+	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
+	workDir := "/scratch/slurm/test_workdir"
+	logDir := "/scratch/slurm/test_logs"
+	devMode := true
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, true)
+	slurm := CreateSlurm(workDir, logDir, partition, account, module, true)
 
-	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, image, processID)
+	script, err := slurm.GenerateSlurmScript(
+		nodes,
+		tasksPerNode,
+		cpusPerTask,
+		walltime,
+		mem,
+		gpus,
+		command,
+		image,
+		processID,
+		nil,
+		containerFSDir,
+		coloniesTLS,
+		coloniesServerHost,
+		coloniesServerPort,
+		colonyID,
+		executorID,
+		executorPrvKey,
+		devMode)
 	assert.Nil(t, err)
 	fmt.Println(script)
 }
@@ -39,16 +66,24 @@ func TestSlurmSubmit(t *testing.T) {
 	nodes := 1
 	tasksPerNode := 1
 	walltime := 70
-	mem := ""
+	cpusPerTask := "1000m"
+	mem := "100Mi"
 	gpus := 0
 	command := "python3 --version"
 	processID := core.GenerateRandomID()
 	logDir := "/scratch/slurm/logs"
 	workDir := "/scratch/slurm/workdir"
-	containerWorkDir := "/workdir"
-
 	image := "python:3.12-rc-bookworm"
-	singularity := CreateSingularity("/scratch/slurm/images")
+	containerFSDir := "/cfs"
+	coloniesTLS := "true"
+	coloniesServerHost := "colonies.colonyos.io"
+	coloniesServerPort := "443"
+	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
+	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
+	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
+	devMode := true
+
+	singularity := singularity.CreateSingularity("/scratch/slurm/images")
 	if !singularity.SifExists(image) {
 		logs, err := singularity.Build(image)
 		assert.Nil(t, err)
@@ -57,9 +92,27 @@ func TestSlurmSubmit(t *testing.T) {
 		fmt.Println(singularity.Sif(image) + " already exists")
 	}
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, false)
+	slurm := CreateSlurm(workDir, logDir, partition, account, module, true)
 
-	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, singularity.Sif(image), processID)
+	script, err := slurm.GenerateSlurmScript(
+		nodes,
+		tasksPerNode,
+		cpusPerTask,
+		walltime,
+		mem,
+		gpus,
+		command,
+		singularity.Sif(image),
+		processID,
+		nil,
+		containerFSDir,
+		coloniesTLS,
+		coloniesServerHost,
+		coloniesServerPort,
+		colonyID,
+		executorID,
+		executorPrvKey,
+		devMode)
 	assert.Nil(t, err)
 	fmt.Println(script)
 
@@ -93,16 +146,24 @@ func TestSlurmMonitor(t *testing.T) {
 	nodes := 1
 	tasksPerNode := 1
 	walltime := 70
-	mem := ""
+	cpusPerTask := "1000m"
+	mem := "100Mi"
 	gpus := 0
-	command := "hostname"
+	command := "python3 --version"
 	processID := core.GenerateRandomID()
 	logDir := "/scratch/slurm/logs"
 	workDir := "/scratch/slurm/workdir"
-	containerWorkDir := "/workdir"
-
 	image := "python:3.12-rc-bookworm"
-	singularity := CreateSingularity("/scratch/slurm/images")
+	containerFSDir := "/cfs"
+	coloniesTLS := "true"
+	coloniesServerHost := "colonies.colonyos.io"
+	coloniesServerPort := "443"
+	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
+	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
+	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
+	devMode := true
+
+	singularity := singularity.CreateSingularity("/scratch/slurm/images")
 	if !singularity.SifExists(image) {
 		logs, err := singularity.Build(image)
 		assert.Nil(t, err)
@@ -111,10 +172,30 @@ func TestSlurmMonitor(t *testing.T) {
 		fmt.Println(singularity.Sif(image) + " already exists")
 	}
 
-	slurm := CreateSlurm(workDir, containerWorkDir, logDir, partition, account, module, false)
+	slurm := CreateSlurm(workDir, logDir, partition, account, module, false)
 
-	script, err := slurm.GenerateSlurmScript(nodes, tasksPerNode, walltime, mem, gpus, command, singularity.Sif(image), processID)
+	script, err := slurm.GenerateSlurmScript(
+		nodes,
+		tasksPerNode,
+		cpusPerTask,
+		walltime,
+		mem,
+		gpus,
+		command,
+		singularity.Sif(image),
+		processID,
+		nil,
+		containerFSDir,
+		coloniesTLS,
+		coloniesServerHost,
+		coloniesServerPort,
+		colonyID,
+		executorID,
+		executorPrvKey,
+		devMode)
 	assert.Nil(t, err)
+	fmt.Println(script)
+
 	_, err = slurm.Submit(script)
 	assert.Nil(t, err)
 

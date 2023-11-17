@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/colonyos/colonies/pkg/core"
+	"github.com/colonyos/executors/common/pkg/parsers"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -63,6 +64,7 @@ type JobParams struct {
 	Module             string
 	Nodes              int
 	TasksPerNode       int
+	CPUsPerTask        int
 	Time               string
 	Memory             string
 	JobName            string
@@ -79,6 +81,7 @@ type JobParams struct {
 	ColonyID           string
 	ExecutorID         string
 	ExecutorPrvKey     string
+	DevMode            bool
 }
 
 func CreateSlurm(fsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
@@ -97,20 +100,53 @@ func CreateSlurm(fsDir string, logDir string, partition string, account string, 
 	return slurm
 }
 
-func formatSecondsToTime(seconds int) string {
-	hours := seconds / 3600
-	minutes := (seconds % 3600) / 60
-	secs := seconds % 60
-	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
-}
+func (slurm *Slurm) GenerateSlurmScript(
+	nodes int,
+	tasksPerNode int,
+	cpusPerTask string,
+	walltime int,
+	mem string,
+	gpus int,
+	command string,
+	image string,
+	processID string,
+	process *core.Process,
+	containerFsDir string,
+	coloniesTLS string,
+	coloniesServerHost string,
+	coloniesServerPort string,
+	colonyID string,
+	executorID string,
+	executorPrvKey string,
+	devMode bool) (string, error) {
 
-func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime int, mem string, gpus int, command string, image string, processID string, process *core.Process, containerFsDir string, coloniesTLS string, coloniesServerHost string, coloniesServerPort string, colonyID string, executorID string, executorPrvKey string) (string, error) {
-	processJSON, err := process.ToJSON()
+	var processJSON string
+	var err error
+	if process != nil {
+		processJSON, err = process.ToJSON()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	processBase64 := base64.StdEncoding.EncodeToString([]byte(processJSON))
+
+	parsedMem, err := parsers.ParseMemory(mem)
 	if err != nil {
 		return "", err
 	}
 
-	processBase64 := base64.StdEncoding.EncodeToString([]byte(processJSON))
+	parsedCPUPerTask, err := parsers.ParseCPU(cpusPerTask)
+	if err != nil {
+		return "", err
+	}
+
+	parsedCPUPerTaskInt, err := strconv.Atoi(parsedCPUPerTask)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(parsedCPUPerTaskInt)
 
 	params := JobParams{
 		LogDir:             slurm.logDir,
@@ -119,8 +155,9 @@ func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime in
 		Module:             slurm.module,
 		Nodes:              nodes,
 		TasksPerNode:       tasksPerNode,
-		Time:               formatSecondsToTime(walltime),
-		Memory:             mem,
+		CPUsPerTask:        parsedCPUPerTaskInt,
+		Time:               parsers.ParseWalltime(walltime),
+		Memory:             parsedMem,
 		JobName:            processID,
 		GPUs:               gpus,
 		Command:            command,
@@ -135,6 +172,7 @@ func (slurm *Slurm) GenerateSlurmScript(nodes int, tasksPerNode int, walltime in
 		ColonyID:           colonyID,
 		ExecutorID:         executorID,
 		ExecutorPrvKey:     executorPrvKey,
+		DevMode:            devMode,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))

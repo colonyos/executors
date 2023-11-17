@@ -2,12 +2,13 @@
     "conditions": {
         "executortype": "lumi-small-hpcexecutor",
         "nodes": 1,
-        "processes_per_node": 1,
-        "mem": "10G",
+        "processes-per-node": 1,
+        "cpu": "1000m",
+        "mem": "10Gi",
         "gpu": {
             "count": 1
         },
-        "walltime": 60
+        "walltime": 70
     },
     "funcname": "execute",
     "kwargs": {
@@ -32,6 +33,6 @@
         ]
     },
     "maxwaittime": -1,
-    "maxexectime": 10,
+    "maxexectime": 60,
     "maxretries": 3
 }

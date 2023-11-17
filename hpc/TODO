@@ -1,0 +1,2 @@
+1. If a Colonies process is removed, the HPC executor should remove the corresponding Slurm job.
+

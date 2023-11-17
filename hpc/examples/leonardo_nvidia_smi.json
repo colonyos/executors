@@ -2,12 +2,13 @@
     "conditions": {
         "executortype": "leonardo-booster-hpcexecutor",
         "nodes": 4,
-        "processes_per_node": 1,
-        "mem": "15G",
+        "processes-per-node": 1,
+        "mem": "15Gi",
+        "cpu": "1000m",
         "gpu": {
             "count": 4
         },
-        "walltime": 600
+        "walltime": 700
     },
     "funcname": "execute",
     "kwargs": {
