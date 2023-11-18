@@ -82,6 +82,7 @@ type JobParams struct {
 	ExecutorID         string
 	ExecutorPrvKey     string
 	DevMode            bool
+	EnvMap             map[string]string
 }
 
 func CreateSlurm(fsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
@@ -118,6 +119,7 @@ func (slurm *Slurm) GenerateSlurmScript(
 	colonyID string,
 	executorID string,
 	executorPrvKey string,
+	envMap map[string]string,
 	devMode bool) (string, error) {
 
 	var processJSON string
@@ -173,6 +175,7 @@ func (slurm *Slurm) GenerateSlurmScript(
 		ExecutorID:         executorID,
 		ExecutorPrvKey:     executorPrvKey,
 		DevMode:            devMode,
+		EnvMap:             envMap,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))

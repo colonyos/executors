@@ -36,6 +36,11 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 
 	slurm := CreateSlurm(workDir, logDir, partition, account, module, true)
 
+	envMap := map[string]string{
+		"COLONIES_PROCESS": "ProcessValue",
+		"ANOTHER_VAR":      "AnotherValue",
+	}
+
 	script, err := slurm.GenerateSlurmScript(
 		nodes,
 		tasksPerNode,
@@ -54,6 +59,7 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 		colonyID,
 		executorID,
 		executorPrvKey,
+		envMap,
 		devMode)
 	assert.Nil(t, err)
 	fmt.Println(script)
@@ -82,6 +88,11 @@ func TestSlurmSubmit(t *testing.T) {
 	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
 	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
 	devMode := true
+
+	envMap := map[string]string{
+		"COLONIES_PROCESS": "ProcessValue",
+		"ANOTHER_VAR":      "AnotherValue",
+	}
 
 	singularity := singularity.CreateSingularity("/scratch/slurm/images")
 	if !singularity.SifExists(image) {
@@ -112,6 +123,7 @@ func TestSlurmSubmit(t *testing.T) {
 		colonyID,
 		executorID,
 		executorPrvKey,
+		envMap,
 		devMode)
 	assert.Nil(t, err)
 	fmt.Println(script)
@@ -163,6 +175,11 @@ func TestSlurmMonitor(t *testing.T) {
 	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
 	devMode := true
 
+	envMap := map[string]string{
+		"COLONIES_PROCESS": "ProcessValue",
+		"ANOTHER_VAR":      "AnotherValue",
+	}
+
 	singularity := singularity.CreateSingularity("/scratch/slurm/images")
 	if !singularity.SifExists(image) {
 		logs, err := singularity.Build(image)
@@ -192,6 +209,7 @@ func TestSlurmMonitor(t *testing.T) {
 		colonyID,
 		executorID,
 		executorPrvKey,
+		envMap,
 		devMode)
 	assert.Nil(t, err)
 	fmt.Println(script)

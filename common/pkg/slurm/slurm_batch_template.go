@@ -62,6 +62,10 @@ export COLONIES_EXECUTOR_PRVKEY="{{.ExecutorPrvKey}}"
 export COLONIES_PROCESS_ID="{{.ProcessID}}"
 export COLONIES_PROCESS="{{.Process}}"
 
+{{- range $key, $value := .EnvMap }} 
+export {{ $key }}="{{ $value }}"
+{{- end}}
+
 {{- if .Image}}
 {{- if gt .GPUs 0}}
 srun singularity exec --nv --bind {{.Bind}} {{.Image}} {{.Command}}

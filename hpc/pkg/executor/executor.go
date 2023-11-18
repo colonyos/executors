@@ -498,11 +498,16 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 		e.colonyID,
 		e.executorID,
 		e.executorPrvKey,
+		process.FunctionSpec.Env,
 		e.devMode)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to generate Slurm script")
 		return false
 	}
+
+	fmt.Println("--------------------------------------")
+	fmt.Println(script)
+	fmt.Println("--------------------------------------")
 
 	if kwArgs.RebuildImage {
 		err := singularity.RemoveSif(kwArgs.Image)

@@ -1,0 +1,18 @@
+{
+    "conditions": {
+        "executortype": "dev-hpcexecutor",
+        "nodes": 1,
+        "processes-per-node": 1,
+        "walltime": 60,
+        "mem": "1000Mi",
+        "cpu": "1000m"
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "env",
+        "docker-image": "ubuntu:20.04"
+    },
+    "maxwaittime": -1,
+    "maxexectime": 10,
+    "maxretries": 3
+}
