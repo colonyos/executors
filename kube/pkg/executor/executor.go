@@ -449,6 +449,7 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 		GPUName:           process.FunctionSpec.Conditions.GPU.Name,
 		ProcessID:         process.ID,
 		Walltime:          process.FunctionSpec.Conditions.WallTime,
+		EnvMap:            process.FunctionSpec.Env,
 	}
 
 	yaml, err := e.k8sHandler.ComposeJobYAML(spec)

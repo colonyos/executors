@@ -23,6 +23,9 @@ func createTestDeploymentSpec() DeploymentSpec {
 }
 
 func createTestJobSpec() JobSpec {
+	envMap := make(map[string]string)
+	envMap["TESTKEY1"] = "TESTVALUE1"
+	envMap["TESTKEY2"] = "TESTVALUE2"
 	spec := JobSpec{
 		JobName:           CreateUniqueJobName("test"),
 		JobContainerImage: "busybox",
@@ -38,6 +41,7 @@ func createTestJobSpec() JobSpec {
 		PVCName:           "",
 		MountPath:         "/cfs",
 		ProcessID:         "test_processid",
+		EnvMap:            envMap,
 	}
 
 	return spec

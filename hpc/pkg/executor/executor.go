@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -492,12 +491,6 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 		process.ID,
 		process,
 		containerMount,
-		fmt.Sprintf("%t", !e.coloniesInsecure),
-		e.coloniesServerHost,
-		strconv.Itoa(e.coloniesServerPort),
-		e.colonyID,
-		e.executorID,
-		e.executorPrvKey,
 		process.FunctionSpec.Env,
 		e.devMode)
 	if err != nil {

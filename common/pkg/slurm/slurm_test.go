@@ -24,12 +24,6 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 	image := "/ml.sif"
 	processID := core.GenerateRandomID()
 	containerFSDir := "/cfs"
-	coloniesTLS := "true"
-	coloniesServerHost := "colonies.colonyos.io"
-	coloniesServerPort := "443"
-	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
-	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
-	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
 	workDir := "/scratch/slurm/test_workdir"
 	logDir := "/scratch/slurm/test_logs"
 	devMode := true
@@ -53,12 +47,6 @@ func TestSlurmGenerateBatchScript(t *testing.T) {
 		processID,
 		nil,
 		containerFSDir,
-		coloniesTLS,
-		coloniesServerHost,
-		coloniesServerPort,
-		colonyID,
-		executorID,
-		executorPrvKey,
 		envMap,
 		devMode)
 	assert.Nil(t, err)
@@ -81,12 +69,6 @@ func TestSlurmSubmit(t *testing.T) {
 	workDir := "/scratch/slurm/workdir"
 	image := "python:3.12-rc-bookworm"
 	containerFSDir := "/cfs"
-	coloniesTLS := "true"
-	coloniesServerHost := "colonies.colonyos.io"
-	coloniesServerPort := "443"
-	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
-	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
-	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
 	devMode := true
 
 	envMap := map[string]string{
@@ -117,12 +99,6 @@ func TestSlurmSubmit(t *testing.T) {
 		processID,
 		nil,
 		containerFSDir,
-		coloniesTLS,
-		coloniesServerHost,
-		coloniesServerPort,
-		colonyID,
-		executorID,
-		executorPrvKey,
 		envMap,
 		devMode)
 	assert.Nil(t, err)
@@ -167,12 +143,6 @@ func TestSlurmMonitor(t *testing.T) {
 	workDir := "/scratch/slurm/workdir"
 	image := "python:3.12-rc-bookworm"
 	containerFSDir := "/cfs"
-	coloniesTLS := "true"
-	coloniesServerHost := "colonies.colonyos.io"
-	coloniesServerPort := "443"
-	colonyID := "cf3032020e6a94d062ac4c5e8e672068afaa78de2b8c3c0d5316197b27e6beae"
-	executorID := "f5fb2739943d5c057b24e3e1626bf4b5f1f4064bc4a73cf3f1d2b72f74125834"
-	executorPrvKey := "e96a20824cceb346fa62c7180fac51df2817177ac6021e7bf8709939a2873b06"
 	devMode := true
 
 	envMap := map[string]string{
@@ -203,12 +173,6 @@ func TestSlurmMonitor(t *testing.T) {
 		processID,
 		nil,
 		containerFSDir,
-		coloniesTLS,
-		coloniesServerHost,
-		coloniesServerPort,
-		colonyID,
-		executorID,
-		executorPrvKey,
 		envMap,
 		devMode)
 	assert.Nil(t, err)

@@ -21,6 +21,7 @@ type JobSpec struct {
 	ProcessID         string
 	PVCName           string
 	Walltime          int64
+	EnvMap            map[string]string
 }
 
 func (spec *JobSpec) ToJSON() (string, error) {

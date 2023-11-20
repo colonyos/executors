@@ -52,15 +52,7 @@ for varname in $(compgen -v | grep ^AWS_S3_); do
     unset $varname
 done
 
-export COLONIES_TLS="{{.ColoniesTLS}}"
-export COLONIES_SERVER_TLS="{{.ColoniesTLS}}"
-export COLONIES_SERVER_HOST="{{.ColoniesServerHost}}"
-export COLONIES_SERVER_PORT="{{.ColoniesServerPort}}"
-export COLONIES_COLONY_ID="{{.ColonyID}}"
-export COLONIES_EXECUTOR_ID="{{.ExecutorID}}"
-export COLONIES_EXECUTOR_PRVKEY="{{.ExecutorPrvKey}}"
 export COLONIES_PROCESS_ID="{{.ProcessID}}"
-export COLONIES_PROCESS="{{.Process}}"
 
 {{- range $key, $value := .EnvMap }} 
 export {{ $key }}="{{ $value }}"

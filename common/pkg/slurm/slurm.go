@@ -58,31 +58,25 @@ type JobEnded struct {
 }
 
 type JobParams struct {
-	LogDir             string
-	Partition          string
-	Account            string
-	Module             string
-	Nodes              int
-	TasksPerNode       int
-	CPUsPerTask        int
-	Time               string
-	Memory             string
-	JobName            string
-	GPUs               int
-	Command            string
-	Image              string
-	ProcessID          string
-	Process            string
-	Bind               string
-	GRES               bool
-	ColoniesTLS        string
-	ColoniesServerHost string
-	ColoniesServerPort string
-	ColonyID           string
-	ExecutorID         string
-	ExecutorPrvKey     string
-	DevMode            bool
-	EnvMap             map[string]string
+	LogDir       string
+	Partition    string
+	Account      string
+	Module       string
+	Nodes        int
+	TasksPerNode int
+	CPUsPerTask  int
+	Time         string
+	Memory       string
+	JobName      string
+	GPUs         int
+	Command      string
+	Image        string
+	ProcessID    string
+	Process      string
+	Bind         string
+	GRES         bool
+	DevMode      bool
+	EnvMap       map[string]string
 }
 
 func CreateSlurm(fsDir string, logDir string, partition string, account string, module string, gres bool) *Slurm {
@@ -113,12 +107,6 @@ func (slurm *Slurm) GenerateSlurmScript(
 	processID string,
 	process *core.Process,
 	containerFsDir string,
-	coloniesTLS string,
-	coloniesServerHost string,
-	coloniesServerPort string,
-	colonyID string,
-	executorID string,
-	executorPrvKey string,
 	envMap map[string]string,
 	devMode bool) (string, error) {
 
@@ -151,31 +139,25 @@ func (slurm *Slurm) GenerateSlurmScript(
 	fmt.Println(parsedCPUPerTaskInt)
 
 	params := JobParams{
-		LogDir:             slurm.logDir,
-		Partition:          slurm.partition,
-		Account:            slurm.account,
-		Module:             slurm.module,
-		Nodes:              nodes,
-		TasksPerNode:       tasksPerNode,
-		CPUsPerTask:        parsedCPUPerTaskInt,
-		Time:               parsers.ParseWalltime(walltime),
-		Memory:             parsedMem,
-		JobName:            processID,
-		GPUs:               gpus,
-		Command:            command,
-		Image:              image,
-		ProcessID:          processID,
-		Process:            processBase64,
-		GRES:               slurm.gres,
-		Bind:               slurm.fsDir + ":" + containerFsDir,
-		ColoniesTLS:        coloniesTLS,
-		ColoniesServerHost: coloniesServerHost,
-		ColoniesServerPort: coloniesServerPort,
-		ColonyID:           colonyID,
-		ExecutorID:         executorID,
-		ExecutorPrvKey:     executorPrvKey,
-		DevMode:            devMode,
-		EnvMap:             envMap,
+		LogDir:       slurm.logDir,
+		Partition:    slurm.partition,
+		Account:      slurm.account,
+		Module:       slurm.module,
+		Nodes:        nodes,
+		TasksPerNode: tasksPerNode,
+		CPUsPerTask:  parsedCPUPerTaskInt,
+		Time:         parsers.ParseWalltime(walltime),
+		Memory:       parsedMem,
+		JobName:      processID,
+		GPUs:         gpus,
+		Command:      command,
+		Image:        image,
+		ProcessID:    processID,
+		Process:      processBase64,
+		GRES:         slurm.gres,
+		Bind:         slurm.fsDir + ":" + containerFsDir,
+		DevMode:      devMode,
+		EnvMap:       envMap,
 	}
 
 	t := template.Must(template.New("sbatchTemplate").Parse(SlurmBatchTemplate))

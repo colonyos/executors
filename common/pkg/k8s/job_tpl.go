@@ -19,6 +19,8 @@ spec:
         accelerator: {{ .GPUName }}
       {{- end }}  
       containers:
+        {{- $envMap := (.EnvMap) }}
+        {{- $processID := (.ProcessID) }}
         {{- $jobContainerName := (.JobContainerName) }}
         {{- $jobContainerImage := (.JobContainerImage) }}
         {{- $execCmd := (.ExecCmd) }}
@@ -38,6 +40,13 @@ spec:
             mountPath: {{ $mountPath }}
         {{- end }}
         command: ["sh", "-c", "{{ $execCmd }} {{ $argsStr }}"]
+        env:
+        {{- range $key, $value := $envMap }} 
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end}}
+        - name: COLONIES_PROCESS_ID
+          value: "{{ $processID }}"
         resources:
           requests:
             memory: "{{ $memory }}"
