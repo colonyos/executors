@@ -3,11 +3,12 @@ module github.com/colonyos/executors/hpc
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.6.4
+	github.com/colonyos/colonies v1.7.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
-	github.com/stretchr/testify v1.8.2
 )
+
+require github.com/stretchr/testify v1.8.2 // indirect
 
 replace github.com/colonyos/executors/common v0.0.4 => ../common/
 

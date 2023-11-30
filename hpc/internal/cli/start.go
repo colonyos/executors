@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/colonyos/colonies/pkg/security"
 	"github.com/colonyos/executors/hpc/pkg/build"
 	"github.com/colonyos/executors/hpc/pkg/executor"
 	log "github.com/sirupsen/logrus"
@@ -97,8 +96,9 @@ var startCmd = &cobra.Command{
 			executor.WithColoniesServerHost(ColoniesServerHost),
 			executor.WithColoniesServerPort(ColoniesServerPort),
 			executor.WithColoniesInsecure(ColoniesInsecure),
-			executor.WithColonyID(ColonyID),
+			executor.WithColonyName(ColonyName),
 			executor.WithColonyPrvKey(ColonyPrvKey),
+			executor.WithExecutorName(ExecutorName),
 			executor.WithExecutorID(ExecutorID),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithLogDir(logDir),
@@ -147,7 +147,7 @@ func parseEnv() {
 		CheckError(err)
 	}
 
-	ColoniesTLSEnv := os.Getenv("COLONIES_TLS")
+	ColoniesTLSEnv := os.Getenv("COLONIES_SERVER_TLS")
 	if ColoniesTLSEnv == "true" {
 		ColoniesUseTLS = true
 		ColoniesInsecure = false
@@ -163,11 +163,11 @@ func parseEnv() {
 		Verbose = false
 	}
 
-	if ColonyID == "" {
-		ColonyID = os.Getenv("COLONIES_COLONY_ID")
+	if ColonyName == "" {
+		ColonyName = os.Getenv("COLONIES_COLONY_NAME")
 	}
-	if ColonyID == "" {
-		CheckError(errors.New("Unknown Colony Id"))
+	if ColonyName == "" {
+		CheckError(errors.New("Unknown Colony name"))
 	}
 
 	if ColonyPrvKey == "" {
@@ -177,19 +177,16 @@ func parseEnv() {
 	if ExecutorID == "" {
 		ExecutorID = os.Getenv("COLONIES_EXECUTOR_ID")
 	}
-	if ExecutorID == "" {
-		CheckError(errors.New("Unknown Executor Id"))
-	}
 
-	keychain, err := security.CreateKeychain(KEYCHAIN_PATH)
-	CheckError(err)
+	if ExecutorName == "" {
+		ExecutorName = os.Getenv("COLONIES_EXECUTOR_NAME")
+	}
+	if ExecutorName == "" {
+		CheckError(errors.New("Unknown Executor name"))
+	}
 
 	if ExecutorPrvKey == "" {
 		ExecutorPrvKey = os.Getenv("COLONIES_EXECUTOR_PRVKEY")
-	}
-	if ExecutorPrvKey == "" {
-		ExecutorPrvKey, err = keychain.GetPrvKey(ExecutorID)
-		CheckError(err)
 	}
 }
 

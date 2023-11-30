@@ -67,14 +67,14 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 	failureHandler *failure.FailureHandler,
 	fsDir string,
 	client *client.ColoniesClient,
-	colonyID string,
+	colonyName string,
 	executorPrvKey string) error {
 	if process.FunctionSpec.Filesystem.Mount != "" {
 		for _, snapshotMount := range process.FunctionSpec.Filesystem.SnapshotMounts {
 			log.WithFields(log.Fields{"ProcessID": process.ID, "SnapshotID": snapshotMount.SnapshotID}).Info("Downloading snapshots")
 			if !snapshotMount.KeepSnaphot {
 				if snapshotMount.SnapshotID != "" {
-					err := client.DeleteSnapshotByID(colonyID, snapshotMount.SnapshotID, executorPrvKey)
+					err := client.RemoveSnapshotByID(colonyName, snapshotMount.SnapshotID, executorPrvKey)
 					if err != nil {
 						log.WithFields(log.Fields{"SnapshotID": snapshotMount.SnapshotID, "Error": err}).Error("Failed to delete snapshot")
 					} else {

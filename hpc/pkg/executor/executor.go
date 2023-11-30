@@ -30,8 +30,9 @@ type Executor struct {
 	coloniesServerHost string
 	coloniesServerPort int
 	coloniesInsecure   bool
-	colonyID           string
+	colonyName         string
 	colonyPrvKey       string
+	executorName       string
 	executorID         string
 	executorPrvKey     string
 	executorType       string
@@ -182,6 +183,12 @@ func WithLocDesc(locDesc string) ExecutorOption {
 	}
 }
 
+func WithExecutorName(executorName string) ExecutorOption {
+	return func(e *Executor) {
+		e.executorName = executorName
+	}
+}
+
 func WithExecutorType(executorType string) ExecutorOption {
 	return func(e *Executor) {
 		e.executorType = executorType
@@ -200,9 +207,9 @@ func WithColoniesInsecure(insecure bool) ExecutorOption {
 	}
 }
 
-func WithColonyID(id string) ExecutorOption {
+func WithColonyName(name string) ExecutorOption {
 	return func(e *Executor) {
-		e.colonyID = id
+		e.colonyName = name
 	}
 }
 
@@ -266,7 +273,7 @@ func WithGRES(gres bool) ExecutorOption {
 	}
 }
 
-func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
+func (e *Executor) createColoniesExecutorWithKey(colonyName string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
 	if err != nil {
@@ -278,7 +285,7 @@ func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executo
 		return nil, "", "", err
 	}
 
-	executor := core.CreateExecutor(executorID, e.executorType, e.executorType+"-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
+	executor := core.CreateExecutor(executorID, e.executorType, e.executorName, colonyName, time.Now(), time.Now())
 	executor.Capabilities.Software.Name = e.swName
 	executor.Capabilities.Software.Type = e.swType
 	executor.Capabilities.Software.Version = e.swVersion
@@ -323,7 +330,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	e.client = client.CreateColoniesClient(e.coloniesServerHost, e.coloniesServerPort, e.coloniesInsecure, false)
 
 	if e.colonyPrvKey != "" {
-		spec, executorID, executorPrvKey, err := e.createColoniesExecutorWithKey(e.colonyID)
+		spec, executorID, executorPrvKey, err := e.createColoniesExecutorWithKey(e.colonyName)
 		if err != nil {
 			return nil, err
 		}
@@ -334,14 +341,14 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = e.client.ApproveExecutor(e.executorID, e.colonyPrvKey)
+		err = e.client.ApproveExecutor(e.colonyName, e.executorName, e.colonyPrvKey)
 		if err != nil {
 			return nil, err
 		}
 
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
 	}
-	function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "execute"}
+	function := &core.Function{ExecutorName: e.executorName, ColonyName: e.colonyName, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
 	e.slurm = slurm.CreateSlurm(e.fsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
@@ -357,7 +364,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.syncHandler, err = sync.CreateSyncHandler(e.colonyID, e.executorPrvKey, e.client, e.fsDir, e.failureHandler, e.debugHandler)
+	e.syncHandler, err = sync.CreateSyncHandler(e.colonyName, e.executorPrvKey, e.client, e.fsDir, e.failureHandler, e.debugHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +378,9 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"LogDir":                e.logDir,
 		"FsDir":                 e.fsDir,
 		"ImageDir":              e.imageDir,
-		"ColonyId":              e.colonyID,
+		"ColonyName":            e.colonyName,
 		"ColonyPrvKey":          "***********************",
+		"ExecutorName":          e.executorName,
 		"ExecutorId":            e.executorID,
 		"ExecutorPrvKey":        "***********************",
 		"Longitude":             e.long,
@@ -402,7 +410,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 func (e *Executor) Shutdown() error {
 	log.Info("Shutting down")
 	if e.colonyPrvKey != "" {
-		err := e.client.DeleteExecutor(e.executorID, e.colonyPrvKey)
+		err := e.client.RemoveExecutor(e.colonyName, e.executorName, e.colonyPrvKey)
 		if err != nil {
 			log.WithFields(log.Fields{"ExecutorID": e.executorID}).Warning("Failed to deregistered")
 		}
@@ -435,7 +443,7 @@ func (e *Executor) monitorSlurmForever() {
 					continue
 				}
 				if jobEnded.JobStatus == slurm.COMPLETED || jobEnded.JobStatus == slurm.COMPLETING {
-					err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
+					err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyName, e.executorPrvKey)
 					if err != nil {
 						continue
 					}
@@ -554,7 +562,7 @@ func (e *Executor) ServeForEver() error {
 	e.monitorSlurmForever()
 
 	for {
-		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, e.executorPrvKey)
 		if err != nil {
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {

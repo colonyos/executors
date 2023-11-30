@@ -16,7 +16,7 @@ var ColoniesServerPort int
 var ColoniesInsecure bool
 var ColoniesSkipTLSVerify bool
 var ColoniesUseTLS bool
-var ColonyID string
+var ColonyName string
 var ColonyPrvKey string
 var ExecutorName string
 var ExecutorID string

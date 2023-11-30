@@ -3,7 +3,7 @@ module github.com/colonyos/executors/kube
 go 1.19
 
 require (
-	github.com/colonyos/colonies v1.6.4
+	github.com/colonyos/colonies v1.7.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 )

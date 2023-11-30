@@ -26,7 +26,7 @@ type Executor struct {
 	coloniesServerHost string
 	coloniesServerPort int
 	coloniesInsecure   bool
-	colonyID           string
+	colonyName         string
 	colonyPrvKey       string
 	executorID         string
 	executorPrvKey     string
