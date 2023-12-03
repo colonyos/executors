@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/colonyos/colonies/pkg/security"
 	"github.com/colonyos/executors/kube/pkg/build"
 	"github.com/colonyos/executors/kube/pkg/executor"
 	log "github.com/sirupsen/logrus"
@@ -33,9 +32,10 @@ var startCmd = &cobra.Command{
 			executor.WithColoniesServerHost(ColoniesServerHost),
 			executor.WithColoniesServerPort(ColoniesServerPort),
 			executor.WithColoniesInsecure(ColoniesInsecure),
-			executor.WithColonyID(ColonyID),
+			executor.WithColonyName(ColonyName),
 			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorID(ExecutorID),
+			executor.WithExecutorName(ExecutorName),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithFsDir(FsDir),
 			executor.WithSoftwareName(SWName),
@@ -94,11 +94,11 @@ func parseEnv() {
 		Verbose = false
 	}
 
-	if ColonyID == "" {
-		ColonyID = os.Getenv("COLONIES_COLONY_ID")
+	if ColonyName == "" {
+		ColonyName = os.Getenv("COLONIES_COLONY_NAME")
 	}
-	if ColonyID == "" {
-		CheckError(errors.New("Unknown Colony Id"))
+	if ColonyName == "" {
+		CheckError(errors.New("Unknown Colony name"))
 	}
 
 	if ColonyPrvKey == "" {
@@ -108,8 +108,12 @@ func parseEnv() {
 	if ExecutorID == "" {
 		ExecutorID = os.Getenv("COLONIES_EXECUTOR_ID")
 	}
-	if ExecutorID == "" {
-		CheckError(errors.New("Unknown Executor Id"))
+
+	if ExecutorName == "" {
+		ExecutorName = os.Getenv("COLONIES_EXECUTOR_NAME")
+	}
+	if ExecutorName == "" {
+		CheckError(errors.New("Unknown Executor name"))
 	}
 
 	ExecutorType = os.Getenv("EXECUTOR_TYPE")
@@ -152,15 +156,8 @@ func parseEnv() {
 		log.Error("Failed to set location long")
 	}
 
-	keychain, err := security.CreateKeychain(KEYCHAIN_PATH)
-	CheckError(err)
-
 	if ExecutorPrvKey == "" {
 		ExecutorPrvKey = os.Getenv("COLONIES_EXECUTOR_PRVKEY")
-	}
-	if ExecutorPrvKey == "" {
-		ExecutorPrvKey, err = keychain.GetPrvKey(ExecutorID)
-		CheckError(err)
 	}
 
 	K8sName = os.Getenv("EXECUTOR_K8S_NAME")

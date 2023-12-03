@@ -28,6 +28,7 @@ type Executor struct {
 	coloniesInsecure   bool
 	colonyName         string
 	colonyPrvKey       string
+	executorName       string
 	executorID         string
 	executorPrvKey     string
 	executorType       string
@@ -92,9 +93,9 @@ func WithColoniesInsecure(insecure bool) ExecutorOption {
 	}
 }
 
-func WithColonyID(id string) ExecutorOption {
+func WithColonyName(name string) ExecutorOption {
 	return func(e *Executor) {
-		e.colonyID = id
+		e.colonyName = name
 	}
 }
 
@@ -104,9 +105,15 @@ func WithColonyPrvKey(prvkey string) ExecutorOption {
 	}
 }
 
-func WithExecutorID(id string) ExecutorOption {
+func WithExecutorName(executorName string) ExecutorOption {
 	return func(e *Executor) {
-		e.executorID = id
+		e.executorName = executorName
+	}
+}
+
+func WithExecutorID(executorID string) ExecutorOption {
+	return func(e *Executor) {
+		e.executorID = executorID
 	}
 }
 
@@ -236,7 +243,7 @@ func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
 	}
 }
 
-func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executor, string, string, error) {
+func (e *Executor) createColoniesExecutorWithKey(colonyName string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
 	if err != nil {
@@ -248,7 +255,7 @@ func (e *Executor) createColoniesExecutorWithKey(colonyID string) (*core.Executo
 		return nil, "", "", err
 	}
 
-	executor := core.CreateExecutor(executorID, e.executorType, e.executorType+"-"+core.GenerateRandomID(), colonyID, time.Now(), time.Now())
+	executor := core.CreateExecutor(executorID, e.executorType, e.executorName, colonyName, time.Now(), time.Now())
 	executor.Capabilities.Software.Name = e.swName
 	executor.Capabilities.Software.Type = e.swType
 	executor.Capabilities.Software.Version = e.swVersion
@@ -289,7 +296,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	e.client = client.CreateColoniesClient(e.coloniesServerHost, e.coloniesServerPort, e.coloniesInsecure, false)
 
 	if e.colonyPrvKey != "" {
-		spec, executorID, executorPrvKey, err := e.createColoniesExecutorWithKey(e.colonyID)
+		spec, executorID, executorPrvKey, err := e.createColoniesExecutorWithKey(e.colonyName)
 		if err != nil {
 			return nil, err
 		}
@@ -300,14 +307,15 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = e.client.ApproveExecutor(e.executorID, e.colonyPrvKey)
+		err = e.client.ApproveExecutor(e.colonyName, e.executorName, e.colonyPrvKey)
 		if err != nil {
 			return nil, err
 		}
 
-		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
+		log.WithFields(log.Fields{"ColonyName": e.colonyName, "ExecutorName": e.executorName}).Info("Self-registered")
 	}
-	function := &core.Function{ExecutorID: e.executorID, ColonyID: e.colonyID, FuncName: "execute"}
+
+	function := &core.Function{ExecutorName: e.executorName, ColonyName: e.colonyName, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
 	var err error
@@ -321,7 +329,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.syncHandler, err = sync.CreateSyncHandler(e.colonyID, e.executorPrvKey, e.client, e.fsDir, e.failureHandler, e.debugHandler)
+	e.syncHandler, err = sync.CreateSyncHandler(e.colonyName, e.executorPrvKey, e.client, e.fsDir, e.failureHandler, e.debugHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +348,10 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"K8sPVC":                e.pvc,
 		"K8sNamespace":          e.namespace,
 		"FsDir":                 e.fsDir,
-		"ColonyId":              e.colonyID,
+		"ColonyName":            e.colonyName,
 		"ColonyPrvKey":          "***********************",
 		"ExecutorId":            e.executorID,
+		"ExecutorName":          e.executorName,
 		"ExecutorPrvKey":        "***********************",
 		"Longitude":             e.long,
 		"Latitude":              e.lat,
@@ -368,12 +377,20 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 func (e *Executor) Shutdown() error {
 	log.Info("Shutting down")
 	if e.colonyPrvKey != "" {
-		err := e.client.DeleteExecutor(e.executorID, e.colonyPrvKey)
+		err := e.client.RemoveExecutor(e.colonyName, e.executorName, e.colonyPrvKey)
 		if err != nil {
-			log.WithFields(log.Fields{"ExecutorID": e.executorID}).Warning("Failed to deregistered")
+			log.WithFields(log.Fields{
+				"ExecutorID":   e.executorID,
+				"ExecutorName": e.executorName,
+				"ColonyName":   e.colonyName}).
+				Warning("Failed to deregistered")
 		}
 
-		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Deregistered")
+		log.WithFields(log.Fields{
+			"ExecutorID":   e.executorID,
+			"ExecutorName": e.executorName,
+			"ColonyName":   e.colonyName}).
+			Info("Deregistered")
 	}
 	e.cancel()
 	return nil
@@ -476,7 +493,7 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 		return false
 	}
 
-	err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyID, e.executorPrvKey)
+	err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyName, e.executorPrvKey)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to post sync")
 		return false
@@ -487,7 +504,7 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 
 func (e *Executor) ServeForEver() error {
 	for {
-		process, err := e.client.AssignWithContext(e.colonyID, 100, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, e.executorPrvKey)
 		if err != nil {
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
@@ -503,7 +520,11 @@ func (e *Executor) ServeForEver() error {
 			continue
 		}
 
-		log.WithFields(log.Fields{"ProcessID": process.ID, "ExecutorID": e.executorID}).Info("Assigned process to executor")
+		log.WithFields(log.Fields{
+			"ProcessID":    process.ID,
+			"ExecutorID":   e.executorID,
+			"ExecutorName": e.executorName}).
+			Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
 			err = e.k8sHandler.GetUtilization()

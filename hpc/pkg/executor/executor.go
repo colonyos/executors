@@ -348,6 +348,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
 	}
+
 	function := &core.Function{ExecutorName: e.executorName, ColonyName: e.colonyName, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
