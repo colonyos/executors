@@ -504,7 +504,7 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 
 func (e *Executor) ServeForEver() error {
 	for {
-		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, "", "", e.executorPrvKey)
 		if err != nil {
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
@@ -537,6 +537,17 @@ func (e *Executor) ServeForEver() error {
 					e.client.Close(process.ID, e.executorPrvKey)
 				}
 			}()
+		} else if process.FunctionSpec.FuncName == "sync" {
+			err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
+			if err != nil {
+				e.failureHandler.HandleError(process, err, "Failed to pre-sync")
+				continue
+			}
+			err = e.client.Close(process.ID, e.executorPrvKey)
+			if err != nil {
+				e.failureHandler.HandleError(process, err, "Failed to close process, processID="+process.ID)
+				continue
+			}
 		} else {
 			log.WithFields(log.Fields{"FuncName": process.FunctionSpec.FuncName}).Error("Unsupported funcname")
 			err := e.client.Fail(process.ID, []string{"Unsupported funcname"}, e.executorPrvKey)

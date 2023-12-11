@@ -1,0 +1,35 @@
+{
+    "conditions": {
+        "executortype": "leonardo-booster-hpcexecutor",
+        "nodes": 1,
+        "processes-per-node": 1,
+        "cpu": "1000m",
+        "mem": "30Gi",
+        "gpu": {
+            "count": 1
+        },
+        "walltime": 60000
+    },
+    "funcname": "sync",
+    "fs": {
+        "mount": "/cfs",
+        "dirs": [
+            {
+                "label": "/water",
+                "dir": "/water",
+                "keepfiles": true,
+                "onconflicts": {
+                    "onstart": {
+                        "keeplocal": false
+                    },
+                    "onclose": {
+                        "keeplocal": true
+                    }
+                }
+            }
+        ]
+    },
+    "maxwaittime": -1,
+    "maxexectime": 60000,
+    "maxretries": 3
+}

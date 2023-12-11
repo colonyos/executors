@@ -3,7 +3,6 @@ package executor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -507,10 +506,6 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 		return false
 	}
 
-	fmt.Println("--------------------------------------")
-	fmt.Println(script)
-	fmt.Println("--------------------------------------")
-
 	if kwArgs.RebuildImage {
 		err := singularity.RemoveSif(kwArgs.Image)
 		e.failureHandler.HandleError(process, err, "Failed to remove Singularity image: "+kwArgs.Image)
@@ -563,7 +558,7 @@ func (e *Executor) ServeForEver() error {
 	e.monitorSlurmForever()
 
 	for {
-		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, e.executorPrvKey)
+		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, "", "", e.executorPrvKey)
 		if err != nil {
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
@@ -584,6 +579,17 @@ func (e *Executor) ServeForEver() error {
 		if process.FunctionSpec.FuncName == "execute" {
 			ok := e.executeSlurm(process)
 			if !ok {
+				continue
+			}
+		} else if process.FunctionSpec.FuncName == "sync" {
+			err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
+			if err != nil {
+				e.failureHandler.HandleError(process, err, "Failed to pre-sync")
+				continue
+			}
+			err = e.client.Close(process.ID, e.executorPrvKey)
+			if err != nil {
+				e.failureHandler.HandleError(process, err, "Failed to close process, processID="+process.ID)
 				continue
 			}
 		} else {

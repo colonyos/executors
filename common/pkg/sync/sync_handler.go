@@ -188,7 +188,7 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 			} else {
 				keepLocal = syncDirMount.ConflictResolution.OnClose.KeepLocal
 			}
-			syncplan, err := fsClient.CalcSyncPlan(d, l, keepLocal)
+			syncPlans, err := fsClient.CalcSyncPlans(d, l, keepLocal)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
 				return err
@@ -199,11 +199,13 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 				strategy = "keepremote"
 			}
 
-			syncHandler.debugHandler.LogInfo(process, "Syncing cfs: label:"+l+" dir:"+d+" download:"+strconv.Itoa(len(syncplan.LocalMissing))+" upload:"+strconv.Itoa(len(syncplan.RemoteMissing))+" conflicts:"+strconv.Itoa(len(syncplan.RemoteMissing))+" conflictstrategy:"+strategy)
-			err = fsClient.ApplySyncPlan(syncHandler.colonyID, syncplan)
-			if err != nil {
-				syncHandler.failureHandler.HandleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)
-				return err
+			for _, syncPlan := range syncPlans {
+				syncHandler.debugHandler.LogInfo(process, "Syncing cfs: label:"+l+" dir:"+d+" download:"+strconv.Itoa(len(syncPlan.LocalMissing))+" upload:"+strconv.Itoa(len(syncPlan.RemoteMissing))+" conflicts:"+strconv.Itoa(len(syncPlan.RemoteMissing))+" conflictstrategy:"+strategy)
+				err = fsClient.ApplySyncPlan(syncHandler.colonyID, syncPlan)
+				if err != nil {
+					syncHandler.failureHandler.HandleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)
+					return err
+				}
 			}
 		} else {
 			log.Warn("Cannot perform directory synchronization, Label and Dir were not set")
