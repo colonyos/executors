@@ -807,8 +807,8 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 		return nil, errors.New("Container with name " + podName + " does not exists in pod " + podName)
 	}
 
-	log := &Log{MsgChan: make(chan string, 100), EofChan: make(chan bool, 100), ErrChan: make(chan error, 100)}
-	count := int64(100)
+	log := &Log{MsgChan: make(chan string, 100), EofChan: make(chan bool, 100), ErrChan: make(chan error, 10000)}
+	count := int64(10000)
 	podLogOptions := v1c.PodLogOptions{
 		Container: containerName,
 		Follow:    follow,
@@ -823,10 +823,11 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 		retries := 0
 		maxRetries := 600 // Wait max 600s for a Pod to start
 		for {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			defer cancel()
+			if stream != nil {
+				stream.Close()
+			}
 
-			stream, err = podLogRequest.Stream(ctx)
+			stream, err = podLogRequest.Stream(context.TODO())
 			if err != nil {
 				if retries == maxRetries {
 					log.ErrChan <- errors.New("Exceeded maxRetries: " + err.Error())
@@ -869,7 +870,7 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 }
 
 func (handler *K8sHandler) GetStdOut(podName string, containerName string) (string, error) {
-	count := int64(100)
+	count := int64(100000)
 	podLogOptions := v1c.PodLogOptions{
 		Container: containerName,
 		Follow:    false,
