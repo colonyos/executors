@@ -85,6 +85,12 @@ var startCmd = &cobra.Command{
 			devMode = true
 		}
 
+		rocmStr := os.Getenv("EXECUTOR_ROCM")
+		rocm := false
+		if rocmStr == "true" {
+			rocm = true
+		}
+
 		addDebugLogsStr := os.Getenv("EXECUTOR_ADD_DEBUG_LOGS")
 		addDebugLogs := false
 		if addDebugLogsStr == "true" {
@@ -125,6 +131,7 @@ var startCmd = &cobra.Command{
 			executor.WithExecutorType(executorType),
 			executor.WithAddDebugLogs(addDebugLogs),
 			executor.WithGRES(gres),
+			executor.WithROCm(rocm),
 			executor.WithDevMode(devMode),
 		)
 		CheckError(err)

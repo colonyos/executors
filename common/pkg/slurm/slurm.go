@@ -75,6 +75,7 @@ type JobParams struct {
 	Process      string
 	Bind         string
 	GRES         bool
+	ROCm         bool
 	DevMode      bool
 	EnvMap       map[string]string
 }
@@ -102,13 +103,19 @@ func (slurm *Slurm) GenerateSlurmScript(
 	walltime int,
 	mem string,
 	gpus int,
+	initCommand string,
 	command string,
 	image string,
 	processID string,
 	process *core.Process,
 	containerFsDir string,
 	envMap map[string]string,
-	devMode bool) (string, error) {
+	devMode bool,
+	rocm bool) (string, error) {
+
+	if initCommand != "" {
+		command = initCommand + ";" + command
+	}
 
 	var processJSON string
 	var err error
@@ -136,8 +143,6 @@ func (slurm *Slurm) GenerateSlurmScript(
 		return "", err
 	}
 
-	fmt.Println(parsedCPUPerTaskInt)
-
 	params := JobParams{
 		LogDir:       slurm.logDir,
 		Partition:    slurm.partition,
@@ -155,6 +160,7 @@ func (slurm *Slurm) GenerateSlurmScript(
 		ProcessID:    processID,
 		Process:      processBase64,
 		GRES:         slurm.gres,
+		ROCm:         rocm,
 		Bind:         slurm.fsDir + ":" + containerFsDir,
 		DevMode:      devMode,
 		EnvMap:       envMap,

@@ -14,6 +14,8 @@ type KwArgs struct {
 	Debug        bool
 	Image        string
 	RebuildImage bool
+	Module       string
+	InitCmd      string
 	Cmd          string
 	Args         string
 	ExecCmd      string
@@ -63,6 +65,11 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 		rebuildImage = false
 	}
 
+	initCmd, ok := process.FunctionSpec.KwArgs["init-cmd"].(string)
+	if !ok {
+		initCmd = ""
+	}
+
 	cmd, ok := process.FunctionSpec.KwArgs["cmd"].(string)
 	if !ok {
 		err := errors.New("Failed to parse cmd kwarg")
@@ -100,6 +107,7 @@ func ParseKwArgs(process *core.Process, failureHandler *failure.FailureHandler, 
 		RebuildImage: rebuildImage,
 		Cmd:          cmd,
 		Args:         argsStr,
+		InitCmd:      initCmd,
 		ExecCmd:      execCmdStr,
 		ExecCmdArr:   execCmd}
 

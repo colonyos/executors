@@ -12,6 +12,9 @@ const SlurmBatchTemplate = `#!/bin/bash
 {{- if .Nodes}}
 #SBATCH --nodes={{.Nodes}}
 {{- end}}
+{{- if .ROCm}}
+#SBATCH --gpus-per-node={{.GPUs}}
+{{- end}}
 {{- if .TasksPerNode}}
 #SBATCH --ntasks-per-node={{.TasksPerNode}}
 {{- end}}
@@ -60,9 +63,13 @@ export {{ $key }}="{{ $value }}"
 
 {{- if .Image}}
 {{- if gt .GPUs 0}}
-srun singularity exec --nv --bind {{.Bind}} {{.Image}} {{.Command}}
+{{- if .ROCm}}
+    srun singularity exec --rocm --bind {{.Bind}} {{.Image}} sh -c "{{.Command}}"
 {{- else}}
-srun singularity exec --bind {{.Bind}} {{.Image}} {{.Command}}
+    srun singularity exec --nv --bind {{.Bind}} {{.Image}} sh -c "{{.Command}}"
+{{- end}}
+{{- else}}
+srun singularity exec --bind {{.Bind}} {{.Image}} sh -c "{{.Command}}"
 {{- end}}
 {{- else}}
 srun {{.Command}}

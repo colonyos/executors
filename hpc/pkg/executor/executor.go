@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,6 +26,7 @@ const DEFAULT_CONTAINER_MOUNT = "/cfs"
 type Executor struct {
 	addDebugLogs       bool
 	verbose            bool
+	rocm               bool
 	devMode            bool
 	coloniesServerHost string
 	coloniesServerPort int
@@ -83,6 +85,12 @@ func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
 func WithDevMode(devMode bool) ExecutorOption {
 	return func(e *Executor) {
 		e.devMode = devMode
+	}
+}
+
+func WithROCm(rocm bool) ExecutorOption {
+	return func(e *Executor) {
+		e.rocm = rocm
 	}
 }
 
@@ -372,6 +380,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 	log.WithFields(log.Fields{
 		"AddDebugLogs":          e.addDebugLogs,
 		"Verbose":               e.verbose,
+		"ROCm":                  e.rocm,
 		"ColoniesServerHost":    e.coloniesServerHost,
 		"ColoniesServerPort":    e.coloniesServerPort,
 		"ColoniesInsecure":      e.coloniesInsecure,
@@ -494,13 +503,15 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 		int(process.FunctionSpec.Conditions.WallTime),
 		process.FunctionSpec.Conditions.Memory,
 		process.FunctionSpec.Conditions.GPU.Count,
+		kwArgs.InitCmd,
 		kwArgs.ExecCmd,
 		singularity.Sif(kwArgs.Image),
 		process.ID,
 		process,
 		containerMount,
 		process.FunctionSpec.Env,
-		e.devMode)
+		e.devMode,
+		e.rocm)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to generate Slurm script")
 		return false
@@ -523,6 +534,10 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 	} else {
 		e.debugHandler.LogInfo(process, "Image already exists: "+kwArgs.Image)
 	}
+
+	fmt.Println("---------------------------------------------------------")
+	fmt.Println(script)
+	fmt.Println("---------------------------------------------------------")
 
 	jobID, err := e.slurm.Submit(script)
 	if err != nil {

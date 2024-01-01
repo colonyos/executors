@@ -1,0 +1,25 @@
+{
+    "conditions": {
+        "executortype": "ice-kubeexecutor",
+        "nodes": 1,
+        "processes-per-node": 1,
+        "mem": "1Gi",
+        "cpu": "500m",
+        "walltime": 200,
+        "gpu": {
+            "count": 0
+        }
+    },
+    "funcname": "execute",
+    "kwargs": {
+        "cmd": "echo",
+        "docker-image": "ubuntu:20.04",
+        "args": [
+            "hello",
+            "world"
+        ]
+    },
+    "maxwaittime": -1,
+    "maxexectime": 100,
+    "maxretries": 3
+}
