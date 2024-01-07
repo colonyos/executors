@@ -105,7 +105,6 @@ var startCmd = &cobra.Command{
 			executor.WithColonyName(ColonyName),
 			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorName(ExecutorName),
-			executor.WithExecutorID(ExecutorID),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
 			executor.WithLogDir(logDir),
 			executor.WithFsDir(fsDir),
@@ -193,7 +192,7 @@ func parseEnv() {
 	}
 
 	if ExecutorPrvKey == "" {
-		ExecutorPrvKey = os.Getenv("COLONIES_EXECUTOR_PRVKEY")
+		ExecutorPrvKey = os.Getenv("COLONIES_PRVKEY")
 	}
 }
 

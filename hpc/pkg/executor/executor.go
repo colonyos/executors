@@ -226,12 +226,6 @@ func WithColonyPrvKey(prvkey string) ExecutorOption {
 	}
 }
 
-func WithExecutorID(id string) ExecutorOption {
-	return func(e *Executor) {
-		e.executorID = id
-	}
-}
-
 func WithExecutorPrvKey(key string) ExecutorOption {
 	return func(e *Executor) {
 		e.executorPrvKey = key
@@ -356,12 +350,18 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		log.WithFields(log.Fields{"ExecutorID": e.executorID}).Info("Self-registered")
 	}
 
+	crypto := crypto.CreateCrypto()
+	var err error
+	e.executorID, err = crypto.GenerateID(e.executorPrvKey)
+	if err != nil {
+		return nil, err
+	}
+
 	function := &core.Function{ExecutorName: e.executorName, ColonyName: e.colonyName, FuncName: "execute"}
 	e.client.AddFunction(function, e.executorPrvKey)
 
 	e.slurm = slurm.CreateSlurm(e.fsDir, e.logDir, e.slurmPartition, e.slurmAccount, e.slurmModule, e.gres)
 
-	var err error
 	e.failureHandler, err = failure.CreateFailureHandler(e.executorPrvKey, e.client)
 	if err != nil {
 		return nil, err
@@ -390,6 +390,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"ColonyName":            e.colonyName,
 		"ColonyPrvKey":          "***********************",
 		"ExecutorName":          e.executorName,
+		"ExecutorType":          e.executorType,
 		"ExecutorId":            e.executorID,
 		"ExecutorPrvKey":        "***********************",
 		"Longitude":             e.long,
