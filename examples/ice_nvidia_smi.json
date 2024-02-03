@@ -1,10 +1,13 @@
 {
     "conditions": {
-        "executortype": "ice-kubeexecutor",
+        "executortype": "container-executor",
+	    "executornames": [
+            "icekube"
+        ],
         "nodes": 1,
         "processes-per-node": 1,
-        "mem": "2000Mi",
-        "cpu": "500m",
+        "mem": "200Mi",
+        "cpu": "1500m",
         "gpu": {
             "name": "nvidia-gtx-2080ti",
             "count": 1

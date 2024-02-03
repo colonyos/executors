@@ -1,12 +1,15 @@
 {
     "conditions": {
-        "executortype": "leonardo-booster-hpcexecutor",
-        "nodes": 4,
+        "executortype": "container-executor",
+	    "executornames": [
+            "leonardo-booster"
+        ],
+        "nodes": 1,
         "processes-per-node": 1,
         "mem": "15Gi",
         "cpu": "1000m",
         "gpu": {
-            "count": 4
+            "count": 1 
         },
         "walltime": 700
     },
