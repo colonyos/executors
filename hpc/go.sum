@@ -92,8 +92,8 @@ github.com/cockroachdb/errors v1.2.4 h1:Lap807SXTH5tri2TivECb/4abUkMZC9zRoLarvcK
 github.com/cockroachdb/errors v1.2.4/go.mod h1:rQD95gz6FARkaKkQXUksEje/d9a6wBJoCr5oaCLELYA=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f h1:o/kfcElHqOiXqcou5a3rIlMc7oJbMQkeLk0VQJ7zgqY=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f/go.mod h1:i/u985jwjWRlyHXQbwatDASoW0RMlZ/3i9yJHE2xLkI=
-github.com/colonyos/colonies v1.7.8 h1:NptlEKVjvNqvfxOgAR5YecTuRvcwmCUhGBf8qevhwN4=
-github.com/colonyos/colonies v1.7.8/go.mod h1:Whx9c5FKxh87uzzOya7hVGK6GrL0q6n0MUINNYnwhvA=
+github.com/colonyos/colonies v1.7.11 h1:q7lZkKMUTYqnGhe1QjAFZKmZk5YIu5Y5x6UAhjbgpXY=
+github.com/colonyos/colonies v1.7.11/go.mod h1:Whx9c5FKxh87uzzOya7hVGK6GrL0q6n0MUINNYnwhvA=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.13+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/coreos/go-semver v0.3.0 h1:wkHLiw0WNATZnSG7epLsujiMCgPAc9xhjJ4tgnAxmfM=

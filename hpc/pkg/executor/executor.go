@@ -537,6 +537,8 @@ func (e *Executor) executeSlurm(process *core.Process) bool {
 	}
 
 	fmt.Println("---------------------------------------------------------")
+	fmt.Println("Slurm script:")
+	fmt.Println("---------------------------------------------------------")
 	fmt.Println(script)
 	fmt.Println("---------------------------------------------------------")
 
