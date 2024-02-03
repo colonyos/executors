@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -911,10 +910,10 @@ func (handler *K8sHandler) GetStdOut(podName string, containerName string) (stri
 	return allLines, nil
 }
 
-func (handler *K8sHandler) GetUtilization() error {
+func (handler *K8sHandler) GetUtilization() (int64, int64, error) {
 	jobs, err := handler.clientset.BatchV1().Jobs(handler.namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
 
 	totalCPU := int64(0)
@@ -923,14 +922,14 @@ func (handler *K8sHandler) GetUtilization() error {
 	for _, job := range jobs.Items {
 		selector, err := metav1.LabelSelectorAsSelector(job.Spec.Selector)
 		if err != nil {
-			return err
+			return -1, -1, err
 		}
 
 		pods, err := handler.clientset.CoreV1().Pods(handler.namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: selector.String(),
 		})
 		if err != nil {
-			return err
+			return -1, -1, err
 		}
 
 		for _, pod := range pods.Items {
@@ -944,10 +943,5 @@ func (handler *K8sHandler) GetUtilization() error {
 		}
 	}
 
-	totalMemInGiB := float64(totalMem) / math.Pow(1024, 3)
-
-	fmt.Printf("Total CPU usage in millicores: %d\n", totalCPU)
-	fmt.Printf("Total Memory usage in GiB: %.2f\n", totalMemInGiB)
-
-	return nil
+	return int64(totalCPU), totalMem, nil
 }
