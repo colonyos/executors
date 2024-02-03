@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -131,6 +132,8 @@ func parseEnv() {
 	HWNodes, err = strconv.Atoi(hwNodesStr)
 	CheckError(err)
 
+	fmt.Println("2")
+
 	HWMem = os.Getenv("EXECUTOR_HW_MEM")
 	HWStorage = os.Getenv("EXECUTOR_HW_STORAGE")
 	hwGPUCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
@@ -157,7 +160,7 @@ func parseEnv() {
 	}
 
 	if ExecutorPrvKey == "" {
-		ExecutorPrvKey = os.Getenv("COLONIES_EXECUTOR_PRVKEY")
+		ExecutorPrvKey = os.Getenv("COLONIES_PRVKEY")
 	}
 
 	K8sName = os.Getenv("EXECUTOR_K8S_NAME")

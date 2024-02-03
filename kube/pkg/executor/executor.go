@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/colonyos/colonies/pkg/client"
 	"github.com/colonyos/colonies/pkg/core"
+	colparser "github.com/colonyos/colonies/pkg/parsers"
 	"github.com/colonyos/colonies/pkg/security/crypto"
 	"github.com/colonyos/executors/common/pkg/debug"
 	"github.com/colonyos/executors/common/pkg/failure"
@@ -451,10 +453,15 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 		return false
 	}
 
+	cmd := kwArgs.Cmd
+	if kwArgs.InitCmd != "" {
+		cmd = kwArgs.InitCmd + ";" + kwArgs.Cmd
+	}
+
 	spec := &k8s.JobSpec{
 		JobName:           k8s.CreateUniqueJobName("kubexexecutor"),
 		JobContainerImage: kwArgs.Image,
-		ExecCmd:           kwArgs.Cmd,
+		ExecCmd:           cmd,
 		ArgsStr:           kwArgs.Args,
 		MountPath:         process.FunctionSpec.Filesystem.Mount,
 		Parallelism:       process.FunctionSpec.Conditions.Nodes,
@@ -504,8 +511,53 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 
 func (e *Executor) ServeForEver() error {
 	for {
-		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, "", "", e.executorPrvKey)
+		usedCPU, usedMem, err := e.k8sHandler.GetUtilization()
 		if err != nil {
+			log.Error(err)
+			log.Error("Retrying in 5 seconds ...")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		totalCPUStr := e.hwCPU
+		totalMemStr := e.hwMem
+
+		totalCPUInt, err := colparser.ConvertCPUToInt(totalCPUStr)
+		if err != nil {
+			log.Error(err)
+			log.Error("Retrying in 5 seconds ...")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		totalMem, err := colparser.ConvertMemoryToBytes(totalMemStr)
+		if err != nil {
+			log.Error(err)
+			log.Error("Retrying in 5 seconds ...")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		availavbleCPU := totalCPUInt - usedCPU
+		availavbleMem := totalMem - usedMem
+
+		availableMemInKiB := float64(availavbleMem) / math.Pow(1024, 1)
+		availableCPUStr := fmt.Sprintf("%dm", availavbleCPU)
+		availableMemStr := fmt.Sprintf("%dKi", int(availableMemInKiB))
+
+		log.WithFields(log.Fields{
+			"UsedCPU":        usedCPU,
+			"UsedMem":        usedMem,
+			"TotalCPU":       totalCPUInt,
+			"TotalMem":       totalMem,
+			"AvailableCPU":   availavbleCPU,
+			"AvailbleMem":    availavbleMem,
+			"AvailbleMemStr": availableMemStr,
+		}).Info("Resource utilization")
+
+		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, availableCPUStr, availableMemStr, e.executorPrvKey)
+		if err != nil {
+			fmt.Println(err)
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
 				if coloniesError.Status == 404 { // No processes can be selected for executor
@@ -527,7 +579,6 @@ func (e *Executor) ServeForEver() error {
 			Info("Assigned process to executor")
 
 		if process.FunctionSpec.FuncName == "execute" {
-			err = e.k8sHandler.GetUtilization()
 			if err != nil {
 				return err
 			}
