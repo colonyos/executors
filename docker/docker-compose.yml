@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  docker_executor:
+    image: alpine
+    container_name: docker_executor
+    privileged: true
+    environment:
+      LANG: ${LANG:-en_US.UTF-8}
+      LANGUAGE: ${LANGUAGE:-en_US.UTF-8}
+      LC_ALL: ${LC_ALL:-en_US.UTF-8}
+      LC_CTYPE: ${LC_CTYPE:-UTF-8}
+      TZ: ${TZ:-Europe/Stockholm}
+      COLONIES_SERVER_TLS: ${COLONIES_SERVER_TLS}
+      COLONIES_SERVER_HOST: ${COLONIES_SERVER_HOST}
+      COLONIES_SERVER_PORT: ${COLONIES_SERVER_PORT}
+      COLONIES_COLONY_NAME: ${COLONIES_COLONY_NAME}
+      COLONIES_COLONY_PRVKEY: ${COLONIES_COLONY_PRVKEY}
+      COLONIES_PRVKEY: ${COLONIES_PRVKEY}
+      COLONIES_EXECUTOR_NAME: ${COLONIES_EXECUTOR_NAME}
+      AWS_S3_TLS: ${AWS_S3_TLS}
+      AWS_S3_SKIPVERIFY: ${AWS_S3_SKIPVERIFY}
+      AWS_S3_ENDPOINT: ${AWS_S3_ENDPOINT}
+      AWS_S3_ACCESSKEY: ${AWS_S3_ACCESSKEY}
+      AWS_S3_SECRETKEY: ${AWS_S3_SECRETKEY}
+      AWS_S3_REGION_KEY: ${AWS_S3_REGION_KEY}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-hpc}
+      EXECUTOR_ADD_DEBUG_LOGS: "false"
+      EXECUTOR_TYPE: "container-executor"
+      EXECUTOR_SW_NAME: "colonyos/dockerexecutor:v1.0.1"
+      EXECUTOR_SW_TYPE: "docker"
+      EXECUTOR_SW_VERSION: "colonyos/dockerexecutor:v1.0.1"
+      EXECUTOR_HW_CPU: ""
+      EXECUTOR_HW_MODEL: "n/a"
+      EXECUTOR_HW_NODES: "1"
+      EXECUTOR_HW_MEM: ""
+      EXECUTOR_HW_STORAGE: ""
+      EXECUTOR_HW_GPU_COUNT: "0"
+      EXECUTOR_HW_GPU_MEM: ""
+      EXECUTOR_HW_GPU_NODES_COUNT: "0"
+      EXECUTOR_HW_GPU_NAME: ""
+      EXECUTOR_LOCATION_LONG: ""
+      EXECUTOR_LOCATION_LAT: ""
+      EXECUTOR_LOCATION_DESC: "n/a"
+      EXECUTOR_FS_DIR: ${EXECUTOR_FS_DIR}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${EXECUTOR_FS_DIR}:${EXECUTOR_FS_DIR}
+      - ./bin/docker_executor:/bin/docker_executor
+    command: ["docker_executor", "start", "-v"]

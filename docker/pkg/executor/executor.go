@@ -3,7 +3,6 @@ package executor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -388,35 +387,29 @@ func (e *Executor) Shutdown() error {
 }
 
 func (e *Executor) FetchJobLogs(process *core.Process, containerID string) error {
-	aggregatedLogsChan := make(chan string, 1000)
-	eofChan := make(chan string, 1000)
+	logChan := make(chan docker.LogMessage, 1000)
 	errChan := make(chan error, 1000)
-	e.dockerHandler.GetContainerLogs(containerID, aggregatedLogsChan, eofChan, errChan)
+	e.dockerHandler.GetContainerLogs(containerID, logChan, errChan)
 
+outerloop:
 	for {
 		select {
-		case msg := <-aggregatedLogsChan:
-			fmt.Println("len(msg): ", len(msg))
-			log.WithFields(log.Fields{"Log": string(msg)}).Info("Adding log")
-			err := e.client.AddLog(process.ID, string(msg), e.executorPrvKey)
+		case msg := <-logChan:
+			err := e.client.AddLog(process.ID, msg.Log+"\n", e.executorPrvKey)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to add log")
 				return err
+			}
+			if msg.EOF {
+				break outerloop
 			}
 		case err := <-errChan:
 			log.WithFields(log.Fields{"Error": err}).Error("Failed to get logs")
 			return err
-		case msg := <-eofChan:
-			log.WithFields(log.Fields{"Log": string(msg)}).Info("Adding log")
-			fmt.Println("len(msg): ", len(msg))
-			err := e.client.AddLog(process.ID, string(msg), e.executorPrvKey)
-			if err != nil {
-				log.WithFields(log.Fields{"Error": err}).Error("Failed to add log")
-				return err
-			}
-			return nil
 		}
 	}
+
+	return nil
 }
 
 func (e *Executor) executeDocker(process *core.Process) bool {
@@ -443,48 +436,31 @@ func (e *Executor) executeDocker(process *core.Process) bool {
 		cmd = kwArgs.InitCmd + ";" + kwArgs.Cmd
 	}
 
-	logChan := make(chan string, 100)
-	doneChan := make(chan string, 100)
-	errChan := make(chan error, 1)
+	logChan := make(chan docker.LogMessage, 100)
 
-	err = e.dockerHandler.PullImage(kwArgs.Image, logChan, doneChan)
+	err = e.dockerHandler.PullImage(kwArgs.Image, logChan)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to pull image")
 		return false
 	}
 
-otherloop:
+	counter := 0
 	for {
-		select {
-		case msg := <-logChan:
-			err := e.client.AddLog(process.ID, msg, e.executorPrvKey)
+		msg := <-logChan
+		if msg.Log != "" {
+			err := e.client.AddLog(process.ID, msg.Log+"\n", e.executorPrvKey)
 			if err != nil {
 				e.failureHandler.HandleError(process, err, "Failed to add log")
 				return false
 			}
-		case err := <-errChan:
-			e.failureHandler.HandleError(process, err, "Failed to pull image")
-			return false
-		case msg := <-doneChan:
-			for len(doneChan) > 0 {
-				err := e.client.AddLog(process.ID, msg, e.executorPrvKey)
-				if err != nil {
-					e.failureHandler.HandleError(process, err, "Failed to add log")
-					return false
-				}
-				log.WithFields(log.Fields{"Image": kwArgs.Image}).Info("Image pulled")
-			}
-			break otherloop
 		}
+		if msg.EOF {
+			break
+		}
+		counter++
 	}
 
-	err = e.client.AddLog(process.ID, "\n", e.executorPrvKey)
-	if err != nil {
-		e.failureHandler.HandleError(process, err, "Failed to add log")
-		return false
-	}
-
-	containerID, err := e.dockerHandler.StartContainer(kwArgs.Image, cmd, []string{kwArgs.Args}, e.fsDir)
+	containerID, err := e.dockerHandler.StartContainer(kwArgs.Image, cmd, []string{kwArgs.Args}, process.FunctionSpec.Env, process.ID, e.fsDir)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to start container")
 		return false
