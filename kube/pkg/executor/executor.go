@@ -408,14 +408,14 @@ func (e *Executor) FetchJobLogs(process *core.Process, podNames []string, contai
 	for {
 		select {
 		case msg := <-aggregatedLogsChan:
-			fmt.Println("Adding log:", msg)
+			log.WithFields(log.Fields{"ProcessID": process.ID, "Log": msg}).Info("Adding log")
 			err := e.client.AddLog(process.ID, msg, e.executorPrvKey)
 			if err != nil {
-				fmt.Println("error adding log:", err)
+				log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Error("Failed to add log")
 				return err
 			}
 		case err := <-errChan:
-			fmt.Println("errchan error adding log:", err)
+			log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Error("Failed to get log")
 			return err
 		case <-eofChan:
 			eofCounter++
@@ -424,7 +424,7 @@ func (e *Executor) FetchJobLogs(process *core.Process, podNames []string, contai
 					msg := <-aggregatedLogsChan
 					err := e.client.AddLog(process.ID, msg, e.executorPrvKey)
 					if err != nil {
-						fmt.Println("error adding log:", err)
+						log.WithFields(log.Fields{"ProcessID": process.ID, "Error": err}).Error("Failed to add log")
 						return err
 					}
 				}
@@ -482,6 +482,7 @@ func (e *Executor) executeK8s(process *core.Process) bool {
 		return false
 	}
 
+	log.WithFields(log.Fields{"JobName": spec.JobName}).Info("K8s batchjob spec")
 	fmt.Println(yaml)
 
 	log.WithFields(log.Fields{"JobName": spec.JobName}).Info("Creating K8s batchjob")
@@ -557,7 +558,7 @@ func (e *Executor) ServeForEver() error {
 
 		process, err := e.client.AssignWithContext(e.colonyName, 100, e.ctx, availableCPUStr, availableMemStr, e.executorPrvKey)
 		if err != nil {
-			fmt.Println(err)
+			log.WithFields(log.Fields{"Error": err}).Error("Failed to assign process")
 			var coloniesError *core.ColoniesError
 			if errors.As(err, &coloniesError) {
 				if coloniesError.Status == 404 { // No processes can be selected for executor

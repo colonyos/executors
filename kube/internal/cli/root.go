@@ -49,9 +49,9 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "ml_executor",
-	Short: "Colonies ML executor",
-	Long:  "Colonies ML executor",
+	Use:   "kube_executor",
+	Short: "Kube Executor",
+	Long:  "Kube Executor",
 }
 
 func Execute() {

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 
@@ -131,8 +130,6 @@ func parseEnv() {
 	hwNodesStr := os.Getenv("EXECUTOR_HW_NODES")
 	HWNodes, err = strconv.Atoi(hwNodesStr)
 	CheckError(err)
-
-	fmt.Println("2")
 
 	HWMem = os.Getenv("EXECUTOR_HW_MEM")
 	HWStorage = os.Getenv("EXECUTOR_HW_STORAGE")
