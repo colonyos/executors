@@ -30,8 +30,8 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "hpc_executor",
-	Short: "Colonies HPC executor",
-	Long:  "Colonies HPC executor",
+	Short: "HPC Executor",
+	Long:  "HPC Executor",
 }
 
 func Execute() {
