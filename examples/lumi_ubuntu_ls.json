@@ -1,6 +1,9 @@
 {
     "conditions": {
-        "executortype": "lumi-small-hpcexecutor",
+        "executortype": "container-executor",
+	    "executornames": [
+            "lumi-standard"
+        ],
         "nodes": 1,
         "processes-per-node": 1,
         "mem": "10Gi",
@@ -12,7 +15,7 @@
     },
     "funcname": "execute",
     "kwargs": {
-        "cmd": "ls /users/jkristia",
+        "cmd": "ls /",
         "docker-image": "ubuntu:20.04"
     },
     "maxexectime": 55,

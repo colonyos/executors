@@ -15,7 +15,7 @@
     },
     "funcname": "execute",
     "kwargs": {
-        "cmd": "nvidia-smi",
+        "cmd": "ls",
         "args": [],
         "docker-image": "tensorflow/tensorflow:2.14.0rc1-gpu",
         "rebuild-image": false,
