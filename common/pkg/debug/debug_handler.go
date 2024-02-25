@@ -36,7 +36,7 @@ func (handler *DebugHandler) LogInfo(process *core.Process, infoMsg string) {
 
 func (handler *DebugHandler) LogError(process *core.Process, err error, errMsg string) {
 	if err != nil {
-		msg := "ColonyOS: "
+		msg := "ContainerExecutor: "
 		if errMsg != "" {
 			msg += err.Error() + ":" + errMsg
 		} else {
