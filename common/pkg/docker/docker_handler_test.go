@@ -8,43 +8,42 @@ import (
 )
 
 func TestDockerHandler(t *testing.T) {
-	image := "ubuntu:latest"
+	image := "ubuntu:jammy-20240125"
 	cmd := "echo"
 	args := []string{"hello world"}
 	cfsMount := "/tmp"
 
-	logsChan := make(chan string, 100)
-	eofChan := make(chan string, 100)
+	logsChan := make(chan LogMessage, 100)
 	errChan := make(chan error, 100)
-	doneChan := make(chan string, 100)
 
 	handler, err := CreateDockerHandler()
 	assert.Nil(t, err)
 
-	err = handler.PullImage(image, logsChan, doneChan)
+	err = handler.PullImage(image, logsChan)
 	assert.Nil(t, err)
 
-	containerID, err := handler.StartContainer(image, cmd, args, cfsMount)
+	env := make(map[string]string, 0)
+
+	containerID, err := handler.StartContainer(image, cmd, args, env, "", cfsMount)
 	assert.Nil(t, err)
 
 	go func() {
-		err := handler.GetContainerLogs(containerID, logsChan, eofChan, errChan)
+		err := handler.GetContainerLogs(containerID, logsChan, errChan)
 		assert.Nil(t, err)
 	}()
 
 	for {
 		select {
-		case log := <-eofChan:
-			fmt.Println(log)
-			assert.NotEmpty(t, log)
-			return
 		case err := <-errChan:
 			fmt.Println(err)
 			assert.Nil(t, err)
 			return
 		case log := <-logsChan:
-			fmt.Println(log)
+			fmt.Println(log.Log)
 			assert.NotEmpty(t, log)
+			if log.EOF {
+				return
+			}
 		}
 	}
 }

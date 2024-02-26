@@ -2,11 +2,13 @@ package docker
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -73,20 +75,6 @@ func (handler *DockerHandler) PullImage(image string, logChan chan LogMessage) e
 	}
 }
 
-func isPrintable(r rune) bool {
-	return (r >= 32 && r <= 126) || r == '\n' || r == '\t'
-}
-
-func filterNonPrintableChars(str string) string {
-	filtered := ""
-	for _, r := range str {
-		if isPrintable(r) {
-			filtered += string(r)
-		}
-	}
-	return filtered
-}
-
 func (handler *DockerHandler) GetContainerLogsNoTTY(containerID string, logsChan chan LogMessage, errChan chan error) error {
 	ctx := context.Background()
 	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Tail: "all"}
@@ -131,11 +119,11 @@ func (handler *DockerHandler) GetContainerLogsNoTTY(containerID string, logsChan
 	return nil
 }
 
-func (handler *DockerHandler) GetContainerLogsOld(containerID string, logsChan chan LogMessage, errChan chan error) error {
-	ctx := context.Background()
+func (handler *DockerHandler) GetContainerLogs(containerID string, logsChan chan LogMessage, errChan chan error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
 	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Tail: "all"}
-
 	out, err := handler.cli.ContainerLogs(ctx, containerID, options)
 	if err != nil {
 		log.WithFields(log.Fields{"ContainerID": containerID, "Error": err}).Error("Error getting container logs")
@@ -143,38 +131,57 @@ func (handler *DockerHandler) GetContainerLogsOld(containerID string, logsChan c
 	}
 	defer out.Close()
 
+	reader := bufio.NewReader(out)
+	var buffer bytes.Buffer
+	var lastChar byte
+
 	for {
-		header := make([]byte, 8) // Header is 8 bytes
-		_, err := io.ReadFull(out, header)
+		b, err := reader.ReadByte()
 		if err != nil {
 			if err == io.EOF {
-				logsChan <- LogMessage{Log: "", EOF: true} // Send the log message
-				break                                      // End of the stream
+				// Send any remaining content in the buffer as a log message
+				if buffer.Len() > 0 {
+					logsChan <- LogMessage{Log: buffer.String(), EOF: false}
+				}
+				break
+			} else {
+				errChan <- err
+				return err
 			}
-			errChan <- err // Send non-EOF errors to the error channel
-			return err
 		}
 
-		size := binary.BigEndian.Uint32(header[4:]) // Get the size of the frame
-		frame := make([]byte, size)
-		_, err = io.ReadFull(out, frame)
-		if err != nil {
-			errChan <- err // Handle potential errors from reading the frame
-			return err
+		// Handle carriage returns by sending the buffer content before overwriting it
+		if b == '\r' {
+			if buffer.Len() > 0 && lastChar != '\r' { // Avoid sending empty messages or duplicates
+				logsChan <- LogMessage{Log: buffer.String(), EOF: false}
+				buffer.Reset()
+			}
+			// Do not reset the buffer yet, as we might get more characters to overwrite it
+		} else if b == '\n' {
+			if lastChar == '\r' { // If the newline follows a carriage return, clear the buffer (line overwrite)
+				buffer.Reset()
+			} else { // Otherwise, it's a new line, send the buffer content
+				logsChan <- LogMessage{Log: buffer.String(), EOF: false}
+				buffer.Reset()
+			}
+		} else {
+			buffer.WriteByte(b) // Add non-control characters to the buffer
 		}
 
-		logMessage := string(frame) // Convert the frame to a string
-
-		logsChan <- LogMessage{Log: logMessage, EOF: false} // Send the log message
+		lastChar = b // Remember the last character for handling \r\n sequences
 	}
+
+	// Indicate EOF with an empty log message
+	logsChan <- LogMessage{Log: "", EOF: true}
 
 	return nil
 }
 
-func (handler *DockerHandler) GetContainerLogs(containerID string, logsChan chan LogMessage, errChan chan error) error {
-	ctx := context.Background()
-	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true}
+func (handler *DockerHandler) GetContainerLogsWorking(containerID string, logsChan chan LogMessage, errChan chan error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
+	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Tail: "all"}
 	out, err := handler.cli.ContainerLogs(ctx, containerID, options)
 	if err != nil {
 		log.WithFields(log.Fields{"ContainerID": containerID, "Error": err}).Error("Error getting container logs")
@@ -182,18 +189,85 @@ func (handler *DockerHandler) GetContainerLogs(containerID string, logsChan chan
 	}
 	defer out.Close()
 
-	scanner := bufio.NewScanner(out)
-	for scanner.Scan() {
-		logsChan <- LogMessage{Log: scanner.Text(), EOF: false}
+	reader := bufio.NewReader(out)
+	var buffer bytes.Buffer
+	for {
+		b, err := reader.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				// Send any remaining content in the buffer as a log message
+				if buffer.Len() > 0 {
+					logsChan <- LogMessage{Log: buffer.String(), EOF: false}
+				}
+				break
+			} else {
+				errChan <- err
+				return err
+			}
+		}
+
+		if b == '\n' || b == '\r' {
+			// Send the current content of the buffer as a log message
+			fmt.Println("sending log message:", len(buffer.String()))
+			logsChan <- LogMessage{Log: buffer.String(), EOF: false}
+			buffer.Reset() // Clear the buffer for the next message
+			if b == '\n' {
+				continue // Skip the rest of the loop for newline characters
+			}
+		} else {
+			buffer.WriteByte(b) // Add the byte to the buffer if it's not a newline or carriage return
+		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		if err != io.EOF {
-			errChan <- err
-		}
+	// Indicate EOF with an empty log message
+	logsChan <- LogMessage{Log: "", EOF: true}
+
+	return nil
+}
+
+func (handler *DockerHandler) GetContainerLogsAlmostWorking(containerID string, logsChan chan LogMessage, errChan chan error) error {
+	ctx := context.Background()
+
+	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Tail: "all"}
+	out, err := handler.cli.ContainerLogs(ctx, containerID, options)
+	if err != nil {
+		log.WithFields(log.Fields{"ContainerID": containerID, "Error": err}).Error("Error getting container logs")
 		return err
 	}
+	defer out.Close()
 
+	reader := bufio.NewReader(out)
+	var output []byte
+	for {
+		fmt.Println("Reading")
+		b, err := reader.ReadByte()
+		fmt.Println("Got")
+		if err != nil {
+			if err != io.EOF {
+				errChan <- err
+			}
+			break
+		}
+
+		if b == '\n' || b == '\r' {
+			if len(output) > 0 {
+				logsChan <- LogMessage{Log: string(output), EOF: false}
+				output = nil // Reset output buffer
+			}
+			if b == '\n' {
+				continue // For newline, wait for the next line
+			}
+		} else {
+			output = append(output, b)
+		}
+	}
+
+	// Send any remaining output
+	if len(output) > 0 {
+		logsChan <- LogMessage{Log: string(output), EOF: false}
+	}
+
+	// Indicate EOF
 	logsChan <- LogMessage{Log: "", EOF: true}
 
 	return nil
@@ -247,8 +321,8 @@ func (handler *DockerHandler) StartContainer(image string, cmd string, args []st
 		Cmd:          cmdArgs,
 		Env:          envArray,
 		Tty:          true,
-		OpenStdin:    true, // Keep stdin open
-		AttachStdin:  true, // Attach to stdin
+		OpenStdin:    true,
+		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
 		//User:  fmt.Sprintf("%d:%d", uid, gid),
