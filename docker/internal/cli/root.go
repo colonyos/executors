@@ -43,6 +43,8 @@ var K8sNamespace string
 var K8sPVC string
 var ProcessID string
 var AddDebugLogs bool
+var ParallelContainers bool
+var GPU bool
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")

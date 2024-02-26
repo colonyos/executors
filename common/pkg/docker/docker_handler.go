@@ -75,7 +75,7 @@ func (handler *DockerHandler) PullImage(image string, logChan chan LogMessage) e
 	}
 }
 
-func (handler *DockerHandler) GetContainerLogsNoTTY(containerID string, logsChan chan LogMessage, errChan chan error) error {
+func (handler *DockerHandler) GetContainerLogs(containerID string, logsChan chan LogMessage, errChan chan error) error {
 	ctx := context.Background()
 	options := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Tail: "all"}
 
@@ -119,7 +119,7 @@ func (handler *DockerHandler) GetContainerLogsNoTTY(containerID string, logsChan
 	return nil
 }
 
-func (handler *DockerHandler) GetContainerLogs(containerID string, logsChan chan LogMessage, errChan chan error) error {
+func (handler *DockerHandler) GetContainerLogsTTY(containerID string, logsChan chan LogMessage, errChan chan error) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -273,7 +273,7 @@ func (handler *DockerHandler) GetContainerLogsAlmostWorking(containerID string, 
 	return nil
 }
 
-func (handler *DockerHandler) StartContainer(image string, cmd string, args []string, env map[string]string, processID string, cfsMount string) (string, error) {
+func (handler *DockerHandler) StartContainer(image string, cmd string, args []string, env map[string]string, processID string, cfsMount string, gpu bool) (string, error) {
 	ctx := context.Background()
 
 	volumeBindings := []mount.Mount{
@@ -300,35 +300,51 @@ func (handler *DockerHandler) StartContainer(image string, cmd string, args []st
 	}
 
 	envArray = append(envArray, "COLONIES_PROCESS_ID="+processID)
-	envArray = append(envArray, "PYTHONUNBUFFERED=1")
-	envArray = append(envArray, "PYTHONIOENCODING=UTF-8")
+	//envArray = append(envArray, "PYTHONUNBUFFERED=1")
+	//envArray = append(envArray, "PYTHONIOENCODING=UTF-8")
 
-	// currentUser, err := user.Current()
-	// if err != nil {
-	// 	logrus.Fatal(err)
-	// }
-	// uid, err := strconv.Atoi(currentUser.Uid)
-	// if err != nil {
-	// 	logrus.Fatal(err)
-	// }
-	// gid, err := strconv.Atoi(currentUser.Gid)
-	// if err != nil {
-	// 	logrus.Fatal(err)
-	// }
+	var hostConfig *container.HostConfig
+	if gpu {
+		hostConfig = &container.HostConfig{
+			Mounts:  volumeBindings,
+			Runtime: "nvidia", // Specify the NVIDIA runtime
+			// For Docker Engine API version < 1.40, use the following instead:
+			// DeviceRequests: []container.DeviceRequest{
+			//     {
+			//         Driver:       "nvidia",
+			//         Capabilities: [][]string{{"compute", "utility"}},
+			//         Count:        -1, // -1 specifies 'all GPUs'
+			//     },
+			// },
+		}
+	} else {
+		hostConfig = &container.HostConfig{
+			Mounts: volumeBindings,
+		}
+	}
 
 	resp, err := handler.cli.ContainerCreate(ctx, &container.Config{
 		Image:        image,
 		Cmd:          cmdArgs,
 		Env:          envArray,
-		Tty:          true,
+		Tty:          false,
 		OpenStdin:    true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		//User:  fmt.Sprintf("%d:%d", uid, gid),
-	}, &container.HostConfig{
-		Mounts: volumeBindings,
-	}, nil, nil, "")
+	}, hostConfig,
+		// &container.HostConfig{
+		// 	Mounts:  volumeBindings,
+		// 	Runtime: "nvidia", // Specify the NVIDIA runtime
+		// 	// For Docker Engine API version < 1.40, use the following instead:
+		// 	// DeviceRequests: []container.DeviceRequest{
+		// 	//     {
+		// 	//         Driver:       "nvidia",
+		// 	//         Capabilities: [][]string{{"compute", "utility"}},
+		// 	//         Count:        -1, // -1 specifies 'all GPUs'
+		// 	//     },
+		// 	// },
+		nil, nil, "")
 	if err != nil {
 		log.WithFields(log.Fields{"Image": image, "Error": err}).Error("Error creating container")
 		return "", err

@@ -13,4 +13,5 @@ export AWS_S3_SECRETKEY=""
 export AWS_S3_REGION_KEY=""
 export AWS_S3_BUCKET=""
 export EXECUTOR_FS_DIR=""
-
+export EXECUTOR_START_PARALLEL_CONTAINERS="false"
+export EXECUTOR_GPU="false"

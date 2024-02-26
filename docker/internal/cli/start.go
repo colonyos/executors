@@ -54,6 +54,8 @@ var startCmd = &cobra.Command{
 			executor.WithLat(Lat),
 			executor.WithLocDesc(LocDesc),
 			executor.WithExecutorType(ExecutorType),
+			executor.WithGPU(GPU),
+			executor.WithParallelContainers(ParallelContainers),
 		)
 		CheckError(err)
 
@@ -161,6 +163,18 @@ func parseEnv() {
 	AddDebugLogs = false
 	if addDebugLogsStr == "true" {
 		AddDebugLogs = true
+	}
+
+	parallelContainersStr := os.Getenv("EXECUTOR_PARALLEL_CONTAINERS")
+	ParallelContainers = false
+	if parallelContainersStr == "true" {
+		ParallelContainers = true
+	}
+
+	gpuStr := os.Getenv("EXECUTOR_GPU")
+	GPU = false
+	if gpuStr == "true" {
+		GPU = true
 	}
 }
 

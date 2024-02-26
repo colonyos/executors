@@ -56,6 +56,8 @@ type Executor struct {
 	dockerHandler      *docker.DockerHandler
 	namespace          string
 	pvc                string
+	gpu                bool
+	parallelContainers bool
 }
 
 type ExecutorOption func(*Executor)
@@ -234,6 +236,18 @@ func WithAddDebugLogs(addDebugLogs bool) ExecutorOption {
 	}
 }
 
+func WithParallelContainers(parallelContainers bool) ExecutorOption {
+	return func(e *Executor) {
+		e.parallelContainers = parallelContainers
+	}
+}
+
+func WithGPU(gpu bool) ExecutorOption {
+	return func(e *Executor) {
+		e.gpu = gpu
+	}
+}
+
 func (e *Executor) createColoniesExecutorWithKey(colonyName string) (*core.Executor, string, string, error) {
 	crypto := crypto.CreateCrypto()
 	executorPrvKey, err := crypto.GeneratePrivateKey()
@@ -332,6 +346,8 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 
 	log.WithFields(log.Fields{
 		"Verbose":               e.verbose,
+		"ParallelContainers":    e.parallelContainers,
+		"GPU":                   e.gpu,
 		"ColoniesServerHost":    e.coloniesServerHost,
 		"ColoniesServerPort":    e.coloniesServerPort,
 		"ColoniesInsecure":      e.coloniesInsecure,
@@ -387,9 +403,14 @@ func (e *Executor) Shutdown() error {
 }
 
 func (e *Executor) FetchJobLogs(process *core.Process, containerID string) error {
-	logChan := make(chan docker.LogMessage, 100000)
-	errChan := make(chan error, 1000)
-	go e.dockerHandler.GetContainerLogs(containerID, logChan, errChan)
+	logChan := make(chan docker.LogMessage, 100)
+	errChan := make(chan error, 10)
+	go func() {
+		err := e.dockerHandler.GetContainerLogs(containerID, logChan, errChan)
+		if err != nil {
+			errChan <- err
+		}
+	}()
 
 outerloop:
 	for {
@@ -468,7 +489,7 @@ pull_loop:
 		}
 	}
 
-	containerID, err := e.dockerHandler.StartContainer(kwArgs.Image, cmd, []string{kwArgs.Args}, process.FunctionSpec.Env, process.ID, e.fsDir)
+	containerID, err := e.dockerHandler.StartContainer(kwArgs.Image, cmd, []string{kwArgs.Args}, process.FunctionSpec.Env, process.ID, e.fsDir, e.gpu)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to start container")
 		return false
@@ -519,12 +540,19 @@ func (e *Executor) ServeForEver() error {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to assign process to executor")
 				return err
 			}
-			go func() {
+			if e.parallelContainers {
+				go func() {
+					ok := e.executeDocker(process)
+					if ok {
+						e.client.Close(process.ID, e.executorPrvKey)
+					}
+				}()
+			} else {
 				ok := e.executeDocker(process)
 				if ok {
 					e.client.Close(process.ID, e.executorPrvKey)
 				}
-			}()
+			}
 		} else if process.FunctionSpec.FuncName == "sync" {
 			err = e.syncHandler.PreSync(process, e.debugHandler, e.failureHandler)
 			if err != nil {
