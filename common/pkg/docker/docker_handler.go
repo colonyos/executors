@@ -359,3 +359,25 @@ func (handler *DockerHandler) StartContainer(image string, cmd string, args []st
 
 	return resp.ID, nil
 }
+
+type ContainerStatus struct {
+	ContainerID string
+	ExitCode    int
+	OOMKilled   bool
+}
+
+func (handler *DockerHandler) GetContainerStatus(containerID string) (*ContainerStatus, error) {
+	ctx := context.Background()
+
+	containerJSON, err := handler.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		log.WithFields(log.Fields{"ContainerID": containerID, "Error": err}).Error("Error inspecting container")
+		return nil, err
+	}
+
+	return &ContainerStatus{
+		ContainerID: containerID,
+		ExitCode:    containerJSON.State.ExitCode,
+		OOMKilled:   containerJSON.State.OOMKilled,
+	}, nil
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -504,6 +505,22 @@ pull_loop:
 	err = e.syncHandler.PostSync(process, e.debugHandler, e.failureHandler, e.fsDir, e.client, e.colonyName, e.executorPrvKey)
 	if err != nil {
 		e.failureHandler.HandleError(process, err, "Failed to post sync")
+		return false
+	}
+
+	status, err := e.dockerHandler.GetContainerStatus(containerID)
+	if err != nil {
+		e.failureHandler.HandleError(process, err, "Failed to get container status")
+		return false
+	}
+
+	if status.ExitCode != 0 {
+		e.failureHandler.HandleError(process, errors.New("Exit with an error, exit code = "+strconv.Itoa(status.ExitCode)), "Failed to execute process")
+		return false
+	}
+
+	if status.OOMKilled {
+		e.failureHandler.HandleError(process, errors.New("OOMKilled"), "Failed to execute process")
 		return false
 	}
 

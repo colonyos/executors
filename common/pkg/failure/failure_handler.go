@@ -25,7 +25,7 @@ func (handler *FailureHandler) HandleError(process *core.Process, err error, err
 	if err != nil {
 		msg := "ContainerExecutor: "
 		if errMsg != "" {
-			msg += err.Error() + ":" + errMsg
+			msg += err.Error() + ": " + errMsg
 		} else {
 			msg += err.Error()
 		}
