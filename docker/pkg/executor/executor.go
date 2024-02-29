@@ -417,7 +417,7 @@ outerloop:
 	for {
 		select {
 		case msg := <-logChan:
-			err := e.client.AddLog(process.ID, msg.Log+"\n", e.executorPrvKey)
+			err := e.client.AddLog(process.ID, msg.Log, e.executorPrvKey)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to add log")
 				return err

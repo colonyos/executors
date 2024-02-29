@@ -2,7 +2,7 @@
     "conditions": {
         "executortype": "container-executor",
 	    "executornames": [
-        	"dev-docker"
+        	"johan-laptop"
         ],
         "nodes": 1,
         "processes-per-node": 1,
@@ -18,7 +18,7 @@
         "cmd": "ls",
         "docker-image": "ubuntu:20.04",
         "args": [
-            "/cfs"
+            "/"
         ]
     },
     "maxwaittime": -1,
