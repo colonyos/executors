@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.6
 
 require (
-	github.com/colonyos/colonies v1.7.12
+	github.com/colonyos/colonies v1.8.2
 	github.com/docker/docker v25.0.3+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
