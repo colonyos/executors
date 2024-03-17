@@ -2,7 +2,9 @@ package sync
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -15,7 +17,7 @@ import (
 )
 
 type SyncHandler struct {
-	colonyID       string
+	colonyName     string
 	executorPrvKey string
 	client         *client.ColoniesClient
 	fsDir          string
@@ -23,7 +25,7 @@ type SyncHandler struct {
 	debugHandler   *debug.DebugHandler
 }
 
-func CreateSyncHandler(colonyID string,
+func CreateSyncHandler(colonyName string,
 	executorPrvKey string,
 	client *client.ColoniesClient,
 	fsDir string,
@@ -37,13 +39,113 @@ func CreateSyncHandler(colonyID string,
 		return nil, errors.New("colonies failure client is nil")
 	}
 
-	return &SyncHandler{colonyID: colonyID, executorPrvKey: executorPrvKey, client: client, fsDir: fsDir, failureHandler: failureHandler, debugHandler: debugHandler}, nil
+	return &SyncHandler{colonyName: colonyName, executorPrvKey: executorPrvKey, client: client, fsDir: fsDir, failureHandler: failureHandler, debugHandler: debugHandler}, nil
+}
+
+func (syncHandler *SyncHandler) RemoveNonLabelDirs() error {
+	labelsFromServer, err := syncHandler.client.GetFileLabels(syncHandler.colonyName, syncHandler.executorPrvKey)
+	if err != nil {
+		log.WithFields(log.Fields{"Error": err}).Error("Failed to get file labels")
+		return err
+	}
+
+	labels := make(map[string]bool)
+	for _, labelFromServer := range labelsFromServer {
+		labels[labelFromServer.Name] = true
+	}
+
+	dirs := make(map[string]bool)
+	err = filepath.Walk(syncHandler.fsDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			path = strings.Replace(path, syncHandler.fsDir, "", 1)
+			dirs[path] = true
+		}
+		return nil
+	})
+
+	matchFiles := make(map[string]bool)
+	for dir, _ := range dirs {
+		for label, _ := range labels {
+			//fmt.Println("DIR: ", dir, " LABEL: ", label)
+			// Check of dir is a prefix of label
+
+			if strings.HasPrefix(dir, label) {
+				fmt.Println("MATCH: ", dir, " LABEL: ", label)
+				matchFiles[dir] = true
+			}
+		}
+	}
+
+	fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
+	for dir, _ := range dirs {
+		if dir != "" && !matchFiles[dir] {
+			fmt.Println("REMOVE DIR: ", dir)
+			//log.WithFields(log.Fields{"Dir": dir}).Info("Removing local dir, dir not have valid label")
+
+			// err := os.RemoveAll(syncHandler.fsDir + dir)
+			// if err != nil {
+			// 	log.WithFields(log.Fields{"Error": err}).Error("Failed to remove local dir")
+			// 	return err
+			// }
+		}
+	}
+	fmt.Println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
+
+	return nil
+}
+
+func (syncHandler *SyncHandler) CleanLabel(process *core.Process) error {
+	for _, syncDirMount := range process.FunctionSpec.Filesystem.SyncDirMounts {
+		fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyName, syncHandler.executorPrvKey)
+		if err != nil {
+			log.WithFields(log.Fields{"Error": err}).Error("Failed to create FSClient, trying to clean label")
+			return err
+		}
+
+		label := syncDirMount.Label
+		d := syncHandler.fsDir + syncDirMount.Dir
+		d = strings.Replace(d, "{processid}", process.ID, 1)
+		l := strings.Replace(syncDirMount.Label, "{processid}", process.ID, 1)
+		cleanPlans, err := fsClient.CalcCleanPlans(d, l)
+		if err != nil {
+			log.WithFields(log.Fields{"Error": err}).Error("Failed to calc cleanplans")
+			return err
+		}
+
+		for _, cleanPlan := range cleanPlans {
+			for _, file := range cleanPlan.FilesToRemove {
+				log.WithFields(log.Fields{"ProcessID": process.ID, "Label": label, "File": file}).Info("Removing local file")
+			}
+			err = fsClient.ApplyCleanPlan(cleanPlan)
+			if err != nil {
+				log.WithFields(log.Fields{"Error": err}).Error("Failed to apply cleanplan")
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (syncHandler *SyncHandler) PreSync(process *core.Process,
 	debugHandler *debug.DebugHandler,
 	failureHandler *failure.FailureHandler) error {
 	if process.FunctionSpec.Filesystem.Mount != "" {
+		// Clean up local filesystem
+		// err := syncHandler.RemoveNonLabelDirs()
+		// if err != nil {
+		// 	failureHandler.HandleError(process, err, "Failed to remove non label dirs")
+		// 	return err
+		// }
+
+		// err = syncHandler.CleanLabel(process)
+		// if err != nil {
+		// 	log.WithFields(log.Fields{"Error": err}).Error("Failed to clean label")
+		// 	// 	failureHandler.HandleError(process, err, "Failed to clean label")
+		// 	// 	return err
+		// }
+
+		// Download snapshots and sync to filesystem
 		err := syncHandler.DownloadSnapshots(process)
 		if err != nil {
 			failureHandler.HandleError(process, err, "Failed to download snapshots")
@@ -126,7 +228,7 @@ func (syncHandler *SyncHandler) PostSync(process *core.Process,
 
 func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
 	filesystem := process.FunctionSpec.Filesystem
-	fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyID, syncHandler.executorPrvKey)
+	fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyName, syncHandler.executorPrvKey)
 	if err != nil {
 		syncHandler.failureHandler.HandleError(process, err, "Failed to create FSClient, trying to download snapshots")
 		return err
@@ -134,7 +236,7 @@ func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
 
 	for _, snapshotMount := range filesystem.SnapshotMounts {
 		if snapshotMount.SnapshotID != "" {
-			snapshot, err := syncHandler.client.GetSnapshotByID(syncHandler.colonyID, snapshotMount.SnapshotID, syncHandler.executorPrvKey)
+			snapshot, err := syncHandler.client.GetSnapshotByID(syncHandler.colonyName, snapshotMount.SnapshotID, syncHandler.executorPrvKey)
 			if err != nil {
 				syncHandler.failureHandler.HandleError(process, err, "Failed to resolve snapshotID")
 				return err
@@ -166,7 +268,7 @@ func (syncHandler *SyncHandler) DownloadSnapshots(process *core.Process) error {
 
 func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool) error {
 	filesystem := process.FunctionSpec.Filesystem
-	fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyID, syncHandler.executorPrvKey)
+	fsClient, err := fs.CreateFSClient(syncHandler.client, syncHandler.colonyName, syncHandler.executorPrvKey)
 	if err != nil {
 		syncHandler.failureHandler.HandleError(process, err, "Failed to create FSClient, trying to sync")
 		return err
@@ -188,6 +290,7 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 			} else {
 				keepLocal = syncDirMount.ConflictResolution.OnClose.KeepLocal
 			}
+
 			syncPlans, err := fsClient.CalcSyncPlans(d, l, keepLocal)
 			if err != nil {
 				log.WithFields(log.Fields{"Error": err}).Error("Failed to sync")
@@ -201,7 +304,7 @@ func (syncHandler *SyncHandler) Sync(process *core.Process, onProcessStart bool)
 
 			for _, syncPlan := range syncPlans {
 				syncHandler.debugHandler.LogInfo(process, "Syncing cfs: label:"+l+" dir:"+d+" download:"+strconv.Itoa(len(syncPlan.LocalMissing))+" upload:"+strconv.Itoa(len(syncPlan.RemoteMissing))+" conflicts:"+strconv.Itoa(len(syncPlan.RemoteMissing))+" conflictstrategy:"+strategy)
-				err = fsClient.ApplySyncPlan(syncHandler.colonyID, syncPlan)
+				err = fsClient.ApplySyncPlan(syncPlan)
 				if err != nil {
 					syncHandler.failureHandler.HandleError(process, err, "Failed to apply syncplan, Label:"+l+" Dir:"+d)
 					return err

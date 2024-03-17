@@ -2,7 +2,7 @@ all: build
 .PHONY: all build
 
 BUILD_IMAGE ?= colonyos/kubeexecutor
-PUSH_IMAGE ?= colonyos/kubeexecutor
+PUSH_IMAGE ?= colonyos/kubeexecutor:v1.0.2
 
 VERSION := $(shell git rev-parse --short HEAD)
 BUILDTIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
