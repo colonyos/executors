@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   docker_executor:
-    image: colonyos/dockerexecutor:latest 
+    image: colonyos/dockerexecutor
     container_name: docker_executor
     privileged: true
     environment:
@@ -11,7 +11,7 @@ services:
       LC_ALL: ${LC_ALL:-en_US.UTF-8}
       LC_CTYPE: ${LC_CTYPE:-UTF-8}
       TZ: ${TZ:-Europe/Stockholm}
-      COLONIES_SERVER_TLS: ${COLONIES_SERVER_TLS}
+      COLONIES_TLS: ${COLONIES_TLS}
       COLONIES_SERVER_HOST: ${COLONIES_SERVER_HOST}
       COLONIES_SERVER_PORT: ${COLONIES_SERVER_PORT}
       COLONIES_COLONY_NAME: ${COLONIES_COLONY_NAME}
