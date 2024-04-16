@@ -27,6 +27,7 @@ services:
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-hpc}
       EXECUTOR_ADD_DEBUG_LOGS: "false"
       EXECUTOR_TYPE: "container-executor"
+      EXECUTOR_GPU: ${EXECUTOR_GPU}
       EXECUTOR_SW_NAME: "colonyos/dockerexecutor:v1.0.1"
       EXECUTOR_SW_TYPE: "docker"
       EXECUTOR_SW_VERSION: "colonyos/dockerexecutor:v1.0.1"
