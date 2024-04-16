@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   docker_executor:
-    image: colonyos/dockerexecutor
+    image: colonyos/dockerexecutor:latest
     container_name: docker_executor
     privileged: true
     environment:
