@@ -22,6 +22,7 @@ var ExecutorName string
 var ExecutorID string
 var ExecutorType string
 var ExecutorPrvKey string
+var HomeDir string
 var LogDir string
 
 func init() {

@@ -23,6 +23,7 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		parseEnv()
 
+		homeDir := os.Getenv("EXECUTOR_HOME_DIR")
 		fsDir := os.Getenv("EXECUTOR_FS_DIR")
 		logDir := os.Getenv("EXECUTOR_LOG_DIR")
 		imageDir := os.Getenv("EXECUTOR_IMAGE_DIR")
@@ -106,6 +107,7 @@ var startCmd = &cobra.Command{
 			executor.WithColonyPrvKey(ColonyPrvKey),
 			executor.WithExecutorName(ExecutorName),
 			executor.WithExecutorPrvKey(ExecutorPrvKey),
+			executor.WithHomeDir(homeDir),
 			executor.WithLogDir(logDir),
 			executor.WithFsDir(fsDir),
 			executor.WithImageDir(imageDir),

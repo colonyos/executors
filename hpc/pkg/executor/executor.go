@@ -39,6 +39,7 @@ type Executor struct {
 	executorPrvKey     string
 	executorType       string
 	logDir             string
+	homeDir            string
 	fsDir              string
 	imageDir           string
 	swName             string
@@ -236,6 +237,12 @@ func WithExecutorPrvKey(key string) ExecutorOption {
 func WithLogDir(logDir string) ExecutorOption {
 	return func(e *Executor) {
 		e.logDir = logDir
+	}
+}
+
+func WithHomeDir(homeDir string) ExecutorOption {
+	return func(e *Executor) {
+		e.homeDir = homeDir
 	}
 }
 
@@ -463,6 +470,12 @@ func (e *Executor) monitorSlurmForever() {
 				if err != nil {
 					log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Error("Failed to add SLURM-JOBID attribute")
 					e.failureHandler.HandleError(nil, err, "Failed to add SLURM-JOBID attribute")
+				}
+				homeDirAttr := core.CreateAttribute(jobStarted.ProcessID, e.colonyName, "", core.ENV, "HOME", e.homeDir)
+				_, err = e.client.AddAttribute(homeDirAttr, e.executorPrvKey)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Error("Failed to add HOME attribute")
+					e.failureHandler.HandleError(nil, err, "Failed to add HOME attribute")
 				}
 				log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Info("Slurm job started")
 			case jobEnded := <-jobEndedChan:
