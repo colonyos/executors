@@ -57,6 +57,13 @@ type JobEnded struct {
 	JobStatus int
 }
 
+type JobStarted struct {
+	ProcessID string
+	JobID     int
+	JobStatus int
+	NodeList  []string
+}
+
 type JobParams struct {
 	LogDir       string
 	Partition    string
@@ -179,6 +186,80 @@ func (slurm *Slurm) GetLogFilePath(dir string, processID string, jobID int) stri
 	return dir + "/" + processID + "_" + strconv.Itoa(jobID) + ".log"
 }
 
+// getNodeNames retrieves the names of the compute nodes for a given job ID using Slurm.
+func getNodeNames(jobID int) ([]string, error) {
+	jobIDStr := strconv.Itoa(jobID)
+	cmd := exec.Command("scontrol", "show", "job", jobIDStr)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute scontrol command: %v", err)
+	}
+
+	outputStr := string(output)
+	lines := strings.Split(outputStr, "\n")
+
+	for _, line := range lines {
+		l := strings.TrimSpace(line)
+		if strings.HasPrefix(l, "NodeList=") {
+			parts := strings.Split(line, "=")
+			if len(parts) > 1 {
+				nodeList := strings.TrimSpace(parts[1])
+				if strings.Contains(nodeList, "null") {
+					return nil, errors.New("Node names not available yet")
+				}
+				nodes := parseNodeList(nodeList)
+				return nodes, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("node names not found for job ID: %s", jobID)
+}
+
+// parseNodeList parses the NodeList string from Slurm into individual node names
+func parseNodeList(nodeList string) []string {
+	// Slurm may provide node lists in various formats (e.g., "node[1-3]" or "node1,node2,node3")
+	// This function assumes a simple comma-separated list for demonstration purposes
+	// You may need to implement more complex parsing logic for your specific use case
+	if strings.Contains(nodeList, "[") && strings.Contains(nodeList, "]") {
+		// Example: "node[1-3]" -> ["node1", "node2", "node3"]
+		return expandNodeRange(nodeList)
+	}
+
+	// Split by comma
+	nodes := strings.Split(nodeList, ",")
+	return nodes
+}
+
+// expandNodeRange expands a node range string like "node[1-3]" into individual node names
+func expandNodeRange(nodeRange string) []string {
+	var nodes []string
+
+	// Find the prefix (e.g., "node") and the range (e.g., "1-3")
+	prefixEnd := strings.Index(nodeRange, "[")
+	rangeStr := nodeRange[prefixEnd+1 : len(nodeRange)-1]
+	prefix := nodeRange[:prefixEnd]
+
+	// Split the range (e.g., "1-3" -> ["1", "3"])
+	rangeParts := strings.Split(rangeStr, "-")
+	if len(rangeParts) != 2 {
+		return []string{nodeRange} // Invalid range, return as is
+	}
+
+	// Convert range parts to integers
+	start, err1 := strconv.Atoi(rangeParts[0])
+	end, err2 := strconv.Atoi(rangeParts[1])
+	if err1 != nil || err2 != nil {
+		return []string{nodeRange} // Invalid range, return as is
+	}
+
+	for i := start; i <= end; i++ {
+		nodes = append(nodes, fmt.Sprintf("%s%d", prefix, i))
+	}
+
+	return nodes
+}
+
 func (slurm *Slurm) Submit(script string) (int, error) {
 	tmpfile, err := ioutil.TempFile("", "sbatch_script.*.sh")
 	if err != nil {
@@ -272,7 +353,7 @@ type processRecord struct {
 	replyChan chan bool
 }
 
-func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobEndedChan chan *JobEnded) {
+func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobStartedChan chan *JobStarted, jobEndedChan chan *JobEnded) {
 	processes := make(map[string]chan error)
 	addProcessChan := make(chan *processRecord)
 	deleteProcessChan := make(chan string)
@@ -320,9 +401,9 @@ func (slurm *Slurm) Monitor(dir string, logChan chan *Log, jobEndedChan chan *Jo
 							logPath := dir + "/" + file.Name()
 							errChan := make(chan error)
 							addProcessChan <- &processRecord{processID: processID, errChan: errChan}
-							err = slurm.MonitorExecutionProgress(logPath, logChan, jobEndedChan, errChan, false)
+							err = slurm.MonitorExecutionProgress(logPath, logChan, jobStartedChan, jobEndedChan, errChan, false)
 							if err != nil {
-								log.WithFields(log.Fields{"Error": err}).Error("Failed to monitor slurm job")
+								log.WithFields(log.Fields{"Error": err}).Error("Failed to monitor Slurm job")
 							}
 
 							go func(processID string, logPath string) {
@@ -371,13 +452,15 @@ func (slurm *Slurm) parseLogPath(logPath string) (string, int, error) {
 	return processID, jobID, nil
 }
 
-func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, jobEndedChan chan *JobEnded, errChan chan error, deleteLogFile bool) error {
+func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, jobStartedChan chan *JobStarted, jobEndedChan chan *JobEnded, errChan chan error, deleteLogFile bool) error {
 	processID, jobID, err := slurm.parseLogPath(logPath)
 	if err != nil {
 		return errors.New("Failed to parse jobID in logPath")
 	}
 
-	go func() {
+	go func(jobID int) {
+		hasStarted := false
+		waitForJobChan := make(chan bool)
 		for {
 			file, err := os.Open(logPath)
 			if err != nil {
@@ -412,7 +495,30 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 					if err != nil {
 						log.WithFields(log.Fields{"Error": err}).Error("Error checking job status")
 					}
+
+					if !hasStarted {
+						go func() {
+							for {
+								nodeList, err := getNodeNames(jobID)
+								if err != nil {
+									log.Debug(err)
+									time.Sleep(1000 * time.Millisecond)
+									continue
+								}
+								hasStarted = true
+								jobStartedChan <- &JobStarted{ProcessID: processID, JobID: jobID, JobStatus: jobStatus, NodeList: nodeList}
+								waitForJobChan <- true
+								break
+							}
+						}()
+					}
 					if jobStatus != RUNNING {
+						select {
+						case <-time.After(10 * time.Second):
+							log.WithFields(log.Fields{"JobStatus": jobStatus}).Debug("Failed to get node list")
+						case <-waitForJobChan:
+						}
+
 						content, err := io.ReadAll(file)
 						if err != nil {
 							log.Error(fmt.Errorf("Error reading line: %w", err))
@@ -420,6 +526,9 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 						if len(content) > 0 {
 							logChan <- &Log{ProcessID: processID, Log: string(content)}
 						}
+
+						// TODO: It could happen that the job has ended before jonStartedChan is called
+
 						jobEndedChan <- &JobEnded{ProcessID: processID, JobID: jobID, JobStatus: jobStatus}
 						if deleteLogFile {
 							err := os.Remove(logPath)
@@ -435,7 +544,7 @@ func (slurm *Slurm) MonitorExecutionProgress(logPath string, logChan chan *Log, 
 				_, err = file.Seek(0, io.SeekEnd)
 			}
 		}
-	}()
+	}(jobID)
 
 	return nil
 }

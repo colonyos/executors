@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -434,13 +435,36 @@ func (e *Executor) Shutdown() error {
 func (e *Executor) monitorSlurmForever() {
 	go func() {
 		logChan := make(chan *slurm.Log, 1000)
+		jobStartedChan := make(chan *slurm.JobStarted, 1000)
 		jobEndedChan := make(chan *slurm.JobEnded, 1000)
 		log.WithFields(log.Fields{"LogDir": e.logDir}).Info("Starting Slurm monitor")
-		e.slurm.Monitor(e.logDir, logChan, jobEndedChan)
+		e.slurm.Monitor(e.logDir, logChan, jobStartedChan, jobEndedChan)
 		for {
 			select {
 			case log := <-logChan:
 				e.client.AddLog(log.ProcessID, log.Log, e.executorPrvKey)
+			case jobStarted := <-jobStartedChan:
+				nodeListStr := ""
+				for i, node := range jobStarted.NodeList {
+					if i == 0 {
+						nodeListStr = node
+					} else {
+						nodeListStr = nodeListStr + "," + node
+					}
+				}
+				nodeAttr := core.CreateAttribute(jobStarted.ProcessID, e.colonyName, "", core.ENV, "NODES", nodeListStr)
+				_, err := e.client.AddAttribute(nodeAttr, e.executorPrvKey)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Error("Failed to add NODE attribute")
+					e.failureHandler.HandleError(nil, err, "Failed to add NODE attribute")
+				}
+				jobAttr := core.CreateAttribute(jobStarted.ProcessID, e.colonyName, "", core.ENV, "SLURM-JOBID", strconv.Itoa(jobStarted.JobID))
+				_, err = e.client.AddAttribute(jobAttr, e.executorPrvKey)
+				if err != nil {
+					log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Error("Failed to add SLURM-JOBID attribute")
+					e.failureHandler.HandleError(nil, err, "Failed to add SLURM-JOBID attribute")
+				}
+				log.WithFields(log.Fields{"ProcessId": jobStarted.ProcessID, "SlurmJobId": jobStarted.JobID, "JobStatus": jobStarted.JobStatus, "NodeList": nodeListStr}).Info("Slurm job started")
 			case jobEnded := <-jobEndedChan:
 				log.WithFields(log.Fields{"ProcessId": jobEnded.ProcessID, "SlurmJobId": jobEnded.JobID, "JobStatus": jobEnded.JobStatus}).Info("Slurm job completed")
 				process, err := e.client.GetProcess(jobEnded.ProcessID, e.executorPrvKey)
@@ -463,7 +487,6 @@ func (e *Executor) monitorSlurmForever() {
 						continue
 					}
 				} else {
-					// TODO, add better error message to client
 					err := errors.New("Failed to execute slurm script")
 					e.failureHandler.HandleError(process, err, "")
 					continue

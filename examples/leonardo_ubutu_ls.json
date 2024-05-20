@@ -1,18 +1,21 @@
 {
     "conditions": {
-        "executortype": "leonardo-booster-hpcexecutor",
+        "executortype": "container-executor",
+	    "executornames": [
+            "edge-rocinante"
+        ],
         "nodes": 1,
         "processes-per-node": 1,
-        "cpu": "1000m",
-        "mem": "5Gi",
+        "cpu": "10000m",
+        "mem": "15000Mi",
         "gpu": {
             "count": 1
         },
-        "walltime": 70
+        "walltime": 6000
     },
     "funcname": "execute",
     "kwargs": {
-        "cmd": "ls /",
+        "cmd": "echo hej",
         "docker-image": "ubuntu:20.04"
     },
     "maxexectime": 60,
