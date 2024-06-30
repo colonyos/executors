@@ -2,8 +2,7 @@ version: '3.8'
 
 services:
   docker_executor:
-    image: colonyos/dockerexecutor:latest
-    container_name: docker_executor
+    image: colonyos/dockerexecutor:v1.0.0
     privileged: true
     environment:
       LANG: ${LANG:-en_US.UTF-8}
