@@ -78,9 +78,10 @@ func ValidateMemory(memStr string) error {
 		return errors.New("Memory cannot be negative")
 	}
 
-	if !(strings.HasSuffix(memStr, "Mi") || strings.HasSuffix(memStr, "Gi") || !(strings.HasSuffix(memStr, "Mi"))) {
-		return errors.New("Memory must be defined in Mi or Gi")
+	if strings.HasSuffix(memStr, "Mi") || strings.HasSuffix(memStr, "Gi") || (strings.HasSuffix(memStr, "Mi")) {
+		return nil
 	}
 
-	return nil
+	return errors.New("Memory must be defined in Mi or Gi")
+
 }

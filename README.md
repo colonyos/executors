@@ -6,10 +6,10 @@ This repo contains implementation of several Colonies executors.
 | :---     | :-----------                                      |
 | echo     | An executor that just echo back its input         |
 | sleep    | An executor that sleeps, can be used for testings |
-| k8s      | Manage Kubernetes                                 |
+| kube     | Kubernetes Container Executor                     |
+| hpc      | Slurm Container Executor                          |
+| docker   | Docker Container Executor                         |
 | backup   | An executor to backup PostgreSQL databases        |
-| unix     | Run unix commands                                 |
-| python   | Injects and runs Python code                      |
 
 ## Functions
 ### Echo executor
@@ -22,36 +22,7 @@ This repo contains implementation of several Colonies executors.
 | :----------- | :----------- |
 | **sleep**    | Sleep        |
 
-### K8s executor
-| Function            | Description                       |
-| :-----------        | :-----------                      |
-| **deploy**          | Deploy an executor on K8s.        |
-| **undeploy**        | Undeploy an executor on K8s       |
-| **get_deployments** | List deployments                  |
-| **scale**           | Scale deployments                 |
-| **get_scale**       | Get scale factor of a deployments |
-| **get_pods**        | List pods                         |
-| **pods**            | Get number of pods                |
-| **get_containers**  | List container names              |
-| **containers**      | Get number of containers          |
-| **restart**         | Restart pod                       |
-
 ### Backup executor
 | Function     | Description      |
 | :----------- | :-----------     |
 | **backup**   | Trigger a backup |
-
-### Unix executor
-| Function         | Description      |
-| :-----------     | :-----------     |
-| **unix_command** | Run unix command |
-
-### Python executor
-| Function        | Description                                                             |
-| :-----------    | :-----------                                                            |
-| **python_code** | Injects the python code into the Python session and register a function |
-
-### Machine Learning executor
-| Function        | Description                                                             |
-| :-----------    | :-----------                                                            |
-| **execute**     | Executes python script.                                                 |

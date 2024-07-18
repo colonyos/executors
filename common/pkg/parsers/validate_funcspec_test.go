@@ -36,7 +36,7 @@ func TestValidateFuncSpec(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = ValidateFuncSpec(funcSpec)
-	assert.NotNil(t, err) // processes-per-node cannot be 0
+	assert.NotNil(t, err) // processespernode cannot be 0
 
 	///////////////////////////////////////////////////////////////////
 	/// Test case: nodes is missing
@@ -108,7 +108,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi", 
         "walltime": 60
     },
@@ -141,7 +141,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi",
         "cpu": "100m"
     },
@@ -179,7 +179,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi",
         "cpu": "100m",
         "walltime": 100
@@ -212,7 +212,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi",
         "cpu": "100m",
         "walltime": 100
@@ -244,7 +244,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi",
         "cpu": "100m",
         "walltime": 100
@@ -277,7 +277,7 @@ func TestValidateFuncSpec(t *testing.T) {
     "conditions": {
         "executortype": "dev-hpcexecutor",
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "mem": "1000Mi",
         "cpu": "100m",
         "walltime": 100

@@ -8,7 +8,7 @@ import (
 
 func ValidateFuncSpec(funcSpec *core.FunctionSpec) error {
 	if funcSpec.Conditions.ProcessesPerNode == 0 {
-		return errors.New("Invalid funcspec, processes-per-node cannot be 0")
+		return errors.New("Invalid funcspec, processespernode cannot be 0")
 	}
 
 	if funcSpec.Conditions.Nodes == 0 {

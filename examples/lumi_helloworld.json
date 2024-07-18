@@ -5,7 +5,7 @@
         	"lumi-small"
         ],
         "nodes": 1,
-        "processes-per-node": 1,
+        "processespernode": 1,
         "cpu": "1000m",
         "mem": "10Gi",
         "gpu": {
