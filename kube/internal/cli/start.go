@@ -41,10 +41,10 @@ var startCmd = &cobra.Command{
 			executor.WithSoftwareName(SWName),
 			executor.WithSoftwareType(SWType),
 			executor.WithSoftwareVersion(SWVersion),
-			executor.WithHardwareCPU(HWCPU),
+			executor.WithHardwareTotalCPU(HWTotalCPU),
 			executor.WithHardwareModel(HWModel),
 			executor.WithHardwareNodes(HWNodes),
-			executor.WithHardwareMemory(HWMem),
+			executor.WithHardwareTotalMemory(HWTotalMem),
 			executor.WithHardwareStorage(HWStorage),
 			executor.WithHardwareGPUCount(HWGPUCount),
 			executor.WithHardwareGPUNodesCount(HWGPUNodeCount),
@@ -125,13 +125,13 @@ func parseEnv() {
 	SWName = os.Getenv("EXECUTOR_SW_NAME")
 	SWType = os.Getenv("EXECUTOR_SW_TYPE")
 	SWVersion = os.Getenv("EXECUTOR_SW_VERSION")
-	HWCPU = os.Getenv("EXECUTOR_HW_CPU")
+	HWTotalCPU = os.Getenv("EXECUTOR_HW_TOTAL_CPU")
 	HWModel = os.Getenv("EXECUTOR_HW_MODEL")
 	hwNodesStr := os.Getenv("EXECUTOR_HW_NODES")
 	HWNodes, err = strconv.Atoi(hwNodesStr)
 	CheckError(err)
 
-	HWMem = os.Getenv("EXECUTOR_HW_MEM")
+	HWTotalMem = os.Getenv("EXECUTOR_HW_TOTAL_MEM")
 	HWStorage = os.Getenv("EXECUTOR_HW_STORAGE")
 	hwGPUCountStr := os.Getenv("EXECUTOR_HW_GPU_COUNT")
 	HWGPUCount, err = strconv.Atoi(hwGPUCountStr)

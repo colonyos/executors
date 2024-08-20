@@ -38,10 +38,10 @@ type Executor struct {
 	swName             string
 	swType             string
 	swVersion          string
-	hwCPU              string
+	hwTotalCPU         string
 	hwModel            string
 	hwNodes            int
-	hwMem              string
+	hwTotalMem         string
 	hwStorage          string
 	hwGPUCount         int
 	hwGPUNodesCount    int
@@ -149,9 +149,9 @@ func WithSoftwareVersion(swVersion string) ExecutorOption {
 	}
 }
 
-func WithHardwareCPU(hwCPU string) ExecutorOption {
+func WithHardwareTotalCPU(hwTotalCPU string) ExecutorOption {
 	return func(e *Executor) {
-		e.hwCPU = hwCPU
+		e.hwTotalCPU = hwTotalCPU
 	}
 }
 
@@ -167,9 +167,9 @@ func WithHardwareNodes(hwNodes int) ExecutorOption {
 	}
 }
 
-func WithHardwareMemory(hwMem string) ExecutorOption {
+func WithHardwareTotalMemory(hwTotalMem string) ExecutorOption {
 	return func(e *Executor) {
-		e.hwMem = hwMem
+		e.hwTotalMem = hwTotalMem
 	}
 }
 
@@ -261,11 +261,11 @@ func (e *Executor) createColoniesExecutorWithKey(colonyName string) (*core.Execu
 	executor.Capabilities.Software.Name = e.swName
 	executor.Capabilities.Software.Type = e.swType
 	executor.Capabilities.Software.Version = e.swVersion
-	executor.Capabilities.Hardware.CPU = e.hwCPU
+	executor.Capabilities.Hardware.CPU = e.hwTotalCPU
 	executor.Capabilities.Hardware.Model = e.hwModel
 	executor.Capabilities.Hardware.Nodes = e.hwNodes
 	executor.Capabilities.Hardware.Storage = e.hwStorage
-	executor.Capabilities.Hardware.Memory = e.hwMem
+	executor.Capabilities.Hardware.Memory = e.hwTotalMem
 	executor.Capabilities.Hardware.GPU.Count = e.hwGPUCount
 	executor.Capabilities.Hardware.GPU.NodeCount = e.hwGPUNodesCount
 	executor.Capabilities.Hardware.GPU.Name = e.hwGPUName
@@ -360,8 +360,8 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		"LocationDesc":          e.locDesc,
 		"HardwareModel":         e.hwModel,
 		"HardwareNodes":         e.hwNodes,
-		"HardwareCPU":           e.hwCPU,
-		"HardwareMemory":        e.hwMem,
+		"HardwareCPU":           e.hwTotalCPU,
+		"HardwareMemory":        e.hwTotalMem,
 		"HardwareStorage":       e.hwStorage,
 		"HardwareGPUName":       e.hwGPUName,
 		"HardwareGPUCount":      e.hwGPUCount,
@@ -515,13 +515,13 @@ func (e *Executor) ServeForEver() error {
 		usedCPU, usedMem, err := e.k8sHandler.GetUtilization()
 		if err != nil {
 			log.Error(err)
-			log.Error("Retrying in 5 seconds ...")
+			log.Error("Failed to get K8s utilization, retrying in 5 seconds ...")
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		totalCPUStr := e.hwCPU
-		totalMemStr := e.hwMem
+		totalCPUStr := e.hwTotalCPU
+		totalMemStr := e.hwTotalMem
 
 		totalCPUInt, err := colparser.ConvertCPUToInt(totalCPUStr)
 		if err != nil {
@@ -539,20 +539,32 @@ func (e *Executor) ServeForEver() error {
 			continue
 		}
 
-		availavbleCPU := totalCPUInt - usedCPU
-		availavbleMem := totalMem - usedMem
+		availableCPU := totalCPUInt - usedCPU
+		availableMem := totalMem - usedMem
 
-		availableMemInKiB := float64(availavbleMem) / math.Pow(1024, 1)
-		availableCPUStr := fmt.Sprintf("%dm", availavbleCPU)
+		availableMemInKiB := float64(availableMem) / math.Pow(1024, 1)
+		availableCPUStr := fmt.Sprintf("%dm", availableCPU)
 		availableMemStr := fmt.Sprintf("%dKi", int(availableMemInKiB))
+
+		if availableCPU <= 0 {
+			log.Info("No available CPU, retrying in 1 seconds ...")
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		if availableMem <= 0 {
+			log.Info("No available memory, retrying in 1 seconds ...")
+			time.Sleep(1 * time.Second)
+			continue
+		}
 
 		log.WithFields(log.Fields{
 			"UsedCPU":        usedCPU,
 			"UsedMem":        usedMem,
 			"TotalCPU":       totalCPUInt,
 			"TotalMem":       totalMem,
-			"AvailableCPU":   availavbleCPU,
-			"AvailbleMem":    availavbleMem,
+			"AvailableCPU":   availableCPU,
+			"AvailbleMem":    availableMem,
 			"AvailbleMemStr": availableMemStr,
 		}).Info("Resource utilization")
 

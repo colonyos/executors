@@ -26,10 +26,10 @@ var FsDir string
 var SWName string
 var SWType string
 var SWVersion string
-var HWCPU string
+var HWTotalCPU string
 var HWModel string
 var HWNodes int
-var HWMem string
+var HWTotalMem string
 var HWStorage string
 var HWGPUCount int
 var HWGPUNodeCount int
