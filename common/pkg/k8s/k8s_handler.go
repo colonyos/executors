@@ -29,10 +29,12 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-const Namespace = "colonies"
-const DeploymentName = "executor-deployment"
-const JobName = "executorjob"
-const timeout = 30 * time.Second
+const (
+	Namespace      = "colonies"
+	DeploymentName = "executor-deployment"
+	JobName        = "executorjob"
+	timeout        = 30 * time.Second
+)
 
 type K8sHandler struct {
 	client       dynamic.Interface
@@ -40,6 +42,8 @@ type K8sHandler struct {
 	namespace    string
 	executorName string
 	pvcName      string
+	podName      string
+	podUID       string
 }
 
 type ContainerSpec struct {
@@ -48,11 +52,13 @@ type ContainerSpec struct {
 	ContainerImage string
 }
 
-func CreateK8sHandler(executorName string, namespace string, pvcName string) (*K8sHandler, error) {
+func CreateK8sHandler(executorName string, namespace string, pvcName string, podName string, podUID string) (*K8sHandler, error) {
 	handler := &K8sHandler{}
 	handler.executorName = executorName
 	handler.namespace = namespace
 	handler.pvcName = pvcName
+	handler.podName = podName
+	handler.podUID = podUID
 
 	var err error
 	handler.client, handler.clientset, err = handler.setupK8sClient()
@@ -226,6 +232,8 @@ func CreateUniqueJobName(baseName string) string {
 
 func (handler *K8sHandler) ComposeJobYAML(spec *JobSpec) (string, error) {
 	spec.PVCName = handler.pvcName
+	spec.PodName = handler.podName
+	spec.PodUID = handler.podUID
 
 	fmap := template.FuncMap{
 		"Iterate": func(count int) []uint {
@@ -369,7 +377,7 @@ func (handler K8sHandler) CreatePVC(pvcYAML string) error {
 
 	pvcClient := handler.clientset.CoreV1().PersistentVolumeClaims(handler.namespace)
 
-	var pvc = new(corev1.PersistentVolumeClaim)
+	pvc := new(corev1.PersistentVolumeClaim)
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, pvc)
 	if err != nil {
 		return err
@@ -830,7 +838,7 @@ func (handler *K8sHandler) GetLog(podName string, containerName string, follow b
 			if err != nil {
 				if retries == maxRetries {
 					log.ErrChan <- errors.New("Exceeded maxRetries: " + err.Error())
-					break
+					return
 				}
 				time.Sleep(1 * time.Second)
 				retries++

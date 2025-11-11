@@ -41,6 +41,8 @@ var Long float64
 var K8sName string
 var K8sNamespace string
 var K8sPVC string
+var PodName string
+var PodUID string
 var ProcessID string
 var AddDebugLogs bool
 

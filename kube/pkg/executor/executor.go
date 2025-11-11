@@ -61,6 +61,8 @@ type Executor struct {
 	k8sHandler         *k8s.K8sHandler
 	namespace          string
 	pvc                string
+	podName            string
+	podUID             string
 }
 
 type ExecutorOption func(*Executor)
@@ -233,6 +235,18 @@ func WithK8sPVC(pvc string) ExecutorOption {
 	}
 }
 
+func WithPodName(podName string) ExecutorOption {
+	return func(e *Executor) {
+		e.podName = podName
+	}
+}
+
+func WithPodUID(podUID string) ExecutorOption {
+	return func(e *Executor) {
+		e.podUID = podUID
+	}
+}
+
 func WithK8sName(k8sName string) ExecutorOption {
 	return func(e *Executor) {
 		e.k8sName = k8sName
@@ -336,7 +350,7 @@ func CreateExecutor(opts ...ExecutorOption) (*Executor, error) {
 		return nil, err
 	}
 
-	e.k8sHandler, err = k8s.CreateK8sHandler(e.k8sName, e.namespace, e.pvc)
+	e.k8sHandler, err = k8s.CreateK8sHandler(e.k8sName, e.namespace, e.pvc, e.podName, e.podUID)
 	if err != nil {
 		return nil, err
 	}

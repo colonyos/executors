@@ -4,9 +4,17 @@ const jobTemplate = `
 apiVersion: batch/v1
 kind: Job 
 metadata:
-  name: {{ .JobName }} 
+  name: {{ .JobName }}
   labels:
-    app: kubeexecutor 
+    app: kubeexecutor
+  {{- if and .PodName .PodUID }}
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: {{ .PodName }}
+    uid: {{ .PodUID }}
+    blockOwnerDeletion: true
+  {{- end }}
 spec:
   completions: {{ .Parallelism }}
   parallelism: {{ .Parallelism }}

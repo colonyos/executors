@@ -57,6 +57,8 @@ var startCmd = &cobra.Command{
 			executor.WithK8sName(K8sName),
 			executor.WithK8sNamespace(K8sNamespace),
 			executor.WithK8sPVC(K8sPVC),
+			executor.WithPodName(PodName),
+			executor.WithPodUID(PodUID),
 		)
 		CheckError(err)
 
@@ -163,6 +165,8 @@ func parseEnv() {
 	K8sName = os.Getenv("EXECUTOR_K8S_NAME")
 	K8sNamespace = os.Getenv("EXECUTOR_K8S_NAMESPACE")
 	K8sPVC = os.Getenv("EXECUTOR_K8S_PVC")
+	PodName = os.Getenv("EXECUTOR_K8S_POD_NAME")
+	PodUID = os.Getenv("EXECUTOR_K8S_POD_UID")
 
 	addDebugLogsStr := os.Getenv("EXECUTOR_ADD_DEBUG_LOGS")
 	AddDebugLogs = false
